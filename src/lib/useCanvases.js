@@ -4,8 +4,8 @@ import { supabase } from './supabaseClient'
 export const MAX_CANVASES = 5
 
 /**
- * Carga los lienzos del usuario. Si no tiene ninguno, crea "Mi lienzo"
- * automáticamente.
+ * Carga los lienzos del usuario. Si no tiene ninguno, el componente que use
+ * este hook debe mostrar un diálogo para crear el primero (con nombre).
  */
 export function useCanvases(profile, hiddenCanvasIds = []) {
   const [canvases, setCanvases] = useState([])
@@ -25,20 +25,8 @@ export function useCanvases(profile, hiddenCanvasIds = []) {
         .eq('owner_id', profile.id)
         .order('created_at', { ascending: true })
 
-      let list = data || []
-      const visible = list.filter((c) => !hiddenCanvasIds.includes(c.id))
-
-      if (visible.length === 0) {
-        const { data: created } = await supabase
-          .from('canvases')
-          .insert({ owner_id: profile.id, name: 'Mi lienzo' })
-          .select()
-          .single()
-        if (created) list = [...list, created]
-      }
-
       if (active) {
-        setCanvases(list)
+        setCanvases(data || [])
         setLoading(false)
       }
     }
