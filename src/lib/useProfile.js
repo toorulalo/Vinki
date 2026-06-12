@@ -2,50 +2,61 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 
 /**
- * Devuelve el perfil (fila de `users`) del usuario autenticado.
- * Si no existe todavía (por ejemplo, primer login tras confirmar el email),
- * lo crea automáticamente.
+ * Devuelve { profile, error } para el usuario autenticado.
+ * Si no existe la fila en `users` todavía, la crea.
  *
- * - undefined => cargando
- * - null      => sin sesión
- * - objeto    => perfil listo
+ * - profile === undefined => cargando
+ * - profile === null + error => algo falló (se muestra en pantalla)
+ * - profile === null sin error => sin sesión
  */
 export function useProfile(session) {
   const [profile, setProfile] = useState(undefined)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!session) {
       setProfile(null)
+      setError(null)
       return
     }
 
     let active = true
     setProfile(undefined)
+    setError(null)
 
     async function load() {
-      const { data: existing } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_id', session.user.id)
-        .maybeSingle()
+      try {
+        const { data: existing, error: selectError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', session.user.id)
+          .maybeSingle()
 
-      if (!active) return
+        if (selectError) throw selectError
+        if (!active) return
 
-      if (existing) {
-        setProfile(existing)
-        return
+        if (existing) {
+          setProfile(existing)
+          return
+        }
+
+        const { data: created, error: insertError } = await supabase
+          .from('users')
+          .insert({
+            auth_id: session.user.id,
+            name: session.user.email?.split('@')[0] || 'Usuario'
+          })
+          .select()
+          .single()
+
+        if (insertError) throw insertError
+        if (active) setProfile(created)
+      } catch (err) {
+        if (active) {
+          setError(err.message || 'No se pudo cargar tu perfil.')
+          setProfile(null)
+        }
       }
-
-      const { data: created } = await supabase
-        .from('users')
-        .insert({
-          auth_id: session.user.id,
-          name: session.user.email?.split('@')[0] || 'Usuario'
-        })
-        .select()
-        .single()
-
-      if (active) setProfile(created || null)
     }
 
     load()
@@ -55,5 +66,5 @@ export function useProfile(session) {
     }
   }, [session])
 
-  return profile
+  return { profile, error }
 }
