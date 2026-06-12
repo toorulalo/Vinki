@@ -21,11 +21,12 @@ export function useVropThreads(profile) {
       .order('created_at', { ascending: false })
 
     const list = (data || []).map((t) => {
-      const partner = t.user_a.id === profile.id ? t.user_b : t.user_a
+      const partner =
+        t.user_a?.id === profile.id ? t.user_b : t.user_a
       return {
         id: t.id,
         created_at: t.created_at,
-        partner
+        partner: partner || { id: null, name: 'Compañero/a' }
       }
     })
 
