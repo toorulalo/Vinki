@@ -19,7 +19,7 @@ export function useViewport(containerRef) {
   // Zoom con rueda (desktop) centrado en el cursor
   const onWheel = useCallback(
     (e) => {
-      if (!e.ctrlKey && Math.abs(e.deltaY) < 0) return
+      if (!e.ctrlKey) return
       e.preventDefault()
       const rect = containerRef.current.getBoundingClientRect()
       const px = e.clientX - rect.left

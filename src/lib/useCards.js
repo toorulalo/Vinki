@@ -7,6 +7,9 @@ function defaultContent(type) {
   if (type === 'note') return { text: '' }
   if (type === 'link') return { url: '' }
   if (type === 'image') return { url: '' }
+  if (type === 'pdf') return { url: '', filename: '' }
+  if (type === 'timer') return { goal: 25, mode: 'pomodoro' }
+  if (type === 'spotify') return { url: '', playback: 'local' }
   return {}
 }
 

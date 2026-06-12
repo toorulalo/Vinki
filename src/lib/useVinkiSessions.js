@@ -146,6 +146,48 @@ export function useVinkiSessions(profile) {
     await reload()
   }
 
+  /**
+   * Transforma una sesión 'normal' en 'proyecto': crea un lienzo compartido
+   * y lo asigna como shared_canvas_id de la sesión. Ambos participantes
+   * pasan a ver ese lienzo común.
+   */
+  async function convertToProject(sessionId) {
+    const { data: sharedCanvas, error: canvasError } = await supabase
+      .from('canvases')
+      .insert({ owner_id: profile.id, name: 'Proyecto VINKI-VINKI' })
+      .select()
+      .single()
+
+    if (canvasError) return { error: canvasError }
+
+    const { error: sessionError } = await supabase
+      .from('sessions')
+      .update({ mode: 'proyecto', shared_canvas_id: sharedCanvas.id })
+      .eq('id', sessionId)
+
+    if (sessionError) return { error: sessionError }
+
+    await reload()
+    return { data: { shared_canvas_id: sharedCanvas.id } }
+  }
+
+  /**
+   * Copia las tarjetas de un lienzo individual al lienzo compartido del
+   * proyecto (cuando alguien acepta "guardar mis tarjetas").
+   */
+  async function copyCardsToCanvas(fromCanvasId, toCanvasId) {
+    const { data: cards } = await supabase
+      .from('cards')
+      .select('type, title, content, x, y, minimized')
+      .eq('canvas_id', fromCanvasId)
+
+    if (!cards || cards.length === 0) return { data: [] }
+
+    const rows = cards.map((c) => ({ ...c, canvas_id: toCanvasId }))
+    const { data, error } = await supabase.from('cards').insert(rows).select()
+    return { data, error }
+  }
+
   return {
     sessions,
     loading,
@@ -154,6 +196,8 @@ export function useVinkiSessions(profile) {
     createSession,
     joinSession,
     leaveSession,
+    convertToProject,
+    copyCardsToCanvas,
     reload
   }
 }
