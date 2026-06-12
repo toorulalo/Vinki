@@ -183,6 +183,7 @@ export default function Canvas({ session }) {
           session={openSession}
           profile={profile}
           vrop={vrop}
+          vinki={vinki}
           onClose={() => setOpenSessionId(null)}
         />
       ) : openCanvas ? (
