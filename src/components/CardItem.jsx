@@ -1,5 +1,4 @@
-import { useRef, useState } from 'react'
-import CardEditPanel from './CardEditPanel'
+import { useRef, useState, useEffect } from 'react'
 import { getYoutubeId, getDomain } from '../lib/linkPreview'
 
 const TYPE_LABEL = {
@@ -8,132 +7,142 @@ const TYPE_LABEL = {
   image: 'Imagen'
 }
 
-const DRAG_THRESHOLD = 5
+const DOUBLE_TAP_MS = 320
+const HOLD_MS = 450
+const MOVE_CANCEL = 8
 
+/**
+ * Tarjeta dentro del lienzo-mapa. Coordenadas en "mundo"; el zoom/pan lo
+ * aplica el contenedor. Interacciones:
+ *  - doble tap  -> abrir detalles (y centrar con zoom)
+ *  - mantener   -> entrar en "modo mover" (arrastrar y luego Aceptar)
+ */
 export default function CardItem({
   card,
+  scale,
   onUpdate,
   onUpdateLocal,
-  onRemove,
-  onSendToVrop
+  onOpen,
+  readOnly = false
 }) {
-  const [dragging, setDragging] = useState(false)
-  const [showPanel, setShowPanel] = useState(false)
-  const movedRef = useRef(false)
+  const [moveMode, setMoveMode] = useState(false)
+  const lastTapRef = useRef(0)
+  const holdTimer = useRef(null)
+  const dragRef = useRef(null)
+
+  useEffect(() => () => clearTimeout(holdTimer.current), [])
 
   function handlePointerDown(e) {
-    if (e.target.closest('.card-controls')) return
+    if (readOnly) return
+    if (e.target.closest('.card-controls, .move-bar')) return
+    e.stopPropagation()
 
-    e.preventDefault()
     const startX = e.clientX
     const startY = e.clientY
-    const origX = card.x
-    const origY = card.y
-    let lastX = origX
-    let lastY = origY
-    movedRef.current = false
 
-    function handleMove(ev) {
-      const dx = ev.clientX - startX
-      const dy = ev.clientY - startY
+    if (moveMode) {
+      const origX = card.x
+      const origY = card.y
+      dragRef.current = { startX, startY, origX, origY, lastX: origX, lastY: origY }
+
+      function onMove(ev) {
+        const dx = (ev.clientX - startX) / scale
+        const dy = (ev.clientY - startY) / scale
+        const nx = dragRef.current.origX + dx
+        const ny = dragRef.current.origY + dy
+        dragRef.current.lastX = nx
+        dragRef.current.lastY = ny
+        onUpdateLocal(card.id, { x: nx, y: ny })
+      }
+      function onUp() {
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+      return
+    }
+
+    // No estamos en modo mover: detectar hold (para entrar) y doble tap
+    holdTimer.current = setTimeout(() => {
+      setMoveMode(true)
+    }, HOLD_MS)
+
+    function onMoveDetect(ev) {
       if (
-        !movedRef.current &&
-        (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)
+        Math.abs(ev.clientX - startX) > MOVE_CANCEL ||
+        Math.abs(ev.clientY - startY) > MOVE_CANCEL
       ) {
-        movedRef.current = true
-        setDragging(true)
-      }
-      if (movedRef.current) {
-        lastX = origX + dx
-        lastY = origY + dy
-        onUpdateLocal(card.id, { x: lastX, y: lastY })
+        clearTimeout(holdTimer.current)
+        cleanup()
       }
     }
-
-    function handleUp() {
-      window.removeEventListener('pointermove', handleMove)
-      window.removeEventListener('pointerup', handleUp)
-
-      if (movedRef.current) {
-        setDragging(false)
-        onUpdate(card.id, { x: lastX, y: lastY })
+    function onUpDetect() {
+      clearTimeout(holdTimer.current)
+      cleanup()
+      const now = Date.now()
+      if (now - lastTapRef.current < DOUBLE_TAP_MS) {
+        lastTapRef.current = 0
+        onOpen?.(card)
       } else {
-        setShowPanel(true)
+        lastTapRef.current = now
       }
     }
-
-    window.addEventListener('pointermove', handleMove)
-    window.addEventListener('pointerup', handleUp)
+    function cleanup() {
+      window.removeEventListener('pointermove', onMoveDetect)
+      window.removeEventListener('pointerup', onUpDetect)
+    }
+    window.addEventListener('pointermove', onMoveDetect)
+    window.addEventListener('pointerup', onUpDetect)
   }
 
-  function toggleMinimize(e) {
-    e.stopPropagation()
-    onUpdate(card.id, { minimized: !card.minimized })
+  function acceptMove() {
+    setMoveMode(false)
+    onUpdate(card.id, { x: card.x, y: card.y })
   }
 
   return (
-    <>
-      <div
-        className={`card-item card-${card.type}${dragging ? ' dragging' : ''}${
-          card.minimized ? ' minimized' : ''
-        }`}
-        style={{ left: card.x, top: card.y }}
-        onPointerDown={handlePointerDown}
-      >
-        <div className="card-header">
-          <span className="card-type-tag">{TYPE_LABEL[card.type]}</span>
+    <div
+      className={`card-item embed-item card-${card.type}${
+        moveMode ? ' move-mode' : ''
+      }`}
+      style={{ left: card.x, top: card.y }}
+      onPointerDown={handlePointerDown}
+    >
+      <div className="card-header">
+        <span className="card-type-tag">{TYPE_LABEL[card.type]}</span>
+        {!readOnly && (
           <div className="card-controls">
-            {onSendToVrop && (
-              <button
-                type="button"
-                className="card-control-btn"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSendToVrop(card)
-                }}
-                aria-label="Enviar a Vrop It"
-                title="Enviar a Vrop It"
-              >
-                ➤
-              </button>
-            )}
-            <button
-              type="button"
-              className="card-control-btn"
-              onClick={toggleMinimize}
-              aria-label={card.minimized ? 'Expandir tarjeta' : 'Minimizar tarjeta'}
-            >
-              {card.minimized ? '▢' : '—'}
-            </button>
             <button
               type="button"
               className="card-control-btn"
               onClick={(e) => {
                 e.stopPropagation()
-                onRemove(card.id)
+                onUpdate(card.id, { minimized: !card.minimized })
               }}
-              aria-label="Eliminar tarjeta"
+              aria-label={card.minimized ? 'Expandir' : 'Minimizar'}
             >
-              ×
+              {card.minimized ? '▢' : '—'}
             </button>
-          </div>
-        </div>
-
-        {!card.minimized && (
-          <div className="card-preview">
-            <CardPreview card={card} />
           </div>
         )}
       </div>
 
-      {showPanel && (
-        <CardEditPanel
-          card={card}
-          onUpdate={onUpdate}
-          onClose={() => setShowPanel(false)}
-        />
+      {!card.minimized && (
+        <div className="card-preview">
+          <CardPreview card={card} />
+        </div>
       )}
-    </>
+
+      {moveMode && (
+        <div className="move-bar">
+          <span className="move-hint">Arrastrá y tocá Aceptar</span>
+          <button type="button" className="move-accept" onClick={acceptMove}>
+            Aceptar
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -141,22 +150,19 @@ function CardPreview({ card }) {
   if (card.type === 'note') {
     const text = card.content?.text?.trim()
     return (
-      <p className="preview-note">
-        {text || 'Nota vacía — tocá para escribir'}
-      </p>
+      <p className="preview-note">{text || 'Nota vacía — doble tap'}</p>
     )
   }
 
   if (card.type === 'link') {
     const youtubeId = getYoutubeId(card.content?.url)
     const domain = getDomain(card.content?.url)
-
     return (
       <div className="preview-link">
         {youtubeId ? (
           <img
             className="preview-thumb"
-            src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
+            src={`https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`}
             alt=""
             loading="lazy"
           />
@@ -170,7 +176,7 @@ function CardPreview({ card }) {
             <span className="card-link-domain">{domain}</span>
           </div>
         ) : (
-          <p className="preview-empty">Sin link — tocá para agregar</p>
+          <p className="preview-empty">Sin link — doble tap</p>
         )}
         {card.title && <p className="preview-title">{card.title}</p>}
       </div>
@@ -184,9 +190,10 @@ function CardPreview({ card }) {
         src={card.content.url}
         alt=""
         loading="lazy"
+        style={card.content?.size ? { height: card.content.size } : undefined}
       />
     ) : (
-      <p className="preview-empty">Sin imagen — tocá para agregar</p>
+      <p className="preview-empty">Sin imagen — doble tap</p>
     )
   }
 
