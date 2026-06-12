@@ -74,7 +74,7 @@ export function useCards(canvasId) {
     }
   }, [canvasId])
 
-  async function addCard(type) {
+  async function addCard(type, pos) {
     if (cards.length >= MAX_CARDS) {
       return { error: new Error(`Máximo ${MAX_CARDS} tarjetas por lienzo.`) }
     }
@@ -84,8 +84,8 @@ export function useCards(canvasId) {
       type,
       title: '',
       content: defaultContent(type),
-      x: Math.round(40 + Math.random() * 160),
-      y: Math.round(40 + Math.random() * 120)
+      x: pos ? pos.x : Math.round(40 + Math.random() * 160),
+      y: pos ? pos.y : Math.round(40 + Math.random() * 120)
     }
 
     const { data, error } = await supabase
