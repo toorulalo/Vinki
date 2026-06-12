@@ -9,6 +9,7 @@ const MAX_SCALE = 2.5
  */
 export function useViewport(containerRef) {
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
+  const [animating, setAnimating] = useState(false)
   const viewRef = useRef(view)
   viewRef.current = view
 
@@ -117,17 +118,19 @@ export function useViewport(containerRef) {
     }
   }, [])
 
-  // Centrar la vista en un punto del mundo, con animación y zoom objetivo
+  // Centrar la vista en un punto del mundo, con animación suave y zoom
   const centerOn = useCallback(
     (worldX, worldY, targetScale = 1.3) => {
       const rect = containerRef.current?.getBoundingClientRect()
       if (!rect) return
       const scale = clampScale(targetScale)
+      setAnimating(true)
       setView({
         scale,
         x: rect.width / 2 - worldX * scale,
         y: rect.height / 2 - worldY * scale
       })
+      setTimeout(() => setAnimating(false), 450)
     },
     [containerRef]
   )
@@ -143,6 +146,7 @@ export function useViewport(containerRef) {
 
   return {
     view,
+    animating,
     onWheel,
     onPointerDown,
     onPointerMove,
