@@ -920,6 +920,117 @@ input:focus-visible {
   }
 }
 
+/* --- Lienzo-mapa (zoom + paneo) --- */
+.canvas-map {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 56px);
+  margin-top: 56px;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+
+.canvas-map:active {
+  cursor: grabbing;
+}
+
+.canvas-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.move-mode {
+  outline: 3px dashed var(--accent);
+  outline-offset: 3px;
+  z-index: 40 !important;
+}
+
+.move-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--accent);
+}
+
+.move-hint {
+  font-size: 0.7rem;
+  color: var(--accent-ink);
+  font-family: var(--font-body);
+}
+
+.move-accept {
+  border: none;
+  background: #fff;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+/* --- Animaciones de "vida" por tipo de embed --- */
+.card-note {
+  animation: float-note 5s ease-in-out infinite;
+}
+
+.card-link {
+  animation: float-link 6s ease-in-out infinite;
+}
+
+.card-image {
+  animation: float-image 7s ease-in-out infinite;
+}
+
+@keyframes float-note {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px) rotate(-0.4deg); }
+}
+
+@keyframes float-link {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px) rotate(0.4deg); }
+}
+
+@keyframes float-image {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.005); }
+}
+
+.move-mode {
+  animation: none !important;
+}
+
+/* --- Acciones del panel de detalles --- */
+.panel-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.panel-youtube {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: none;
+  border-radius: 10px;
+}
+
+.panel-image-preview.zoomed {
+  max-height: none;
+  cursor: zoom-out;
+}
+
+.panel-image-preview {
+  cursor: zoom-in;
+}
+
 /* --- Vrop It --- */
 .vrop-preview {
   background: var(--note-yellow);
@@ -1025,6 +1136,332 @@ input:focus-visible {
   font-size: 0.85rem;
   color: var(--ink-soft);
   font-style: italic;
+}
+
+/* --- Onboarding --- */
+.onboarding-card {
+  text-align: center;
+  animation: modal-in 0.25s ease;
+}
+
+.onboarding-icon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+  animation: bounce-in 0.4s ease;
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.onboarding-title {
+  font-size: 1.5rem;
+  color: var(--accent);
+  margin: 0 0 8px;
+}
+
+.onboarding-text {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  margin: 0 0 18px;
+}
+
+.onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--paper-dot);
+}
+
+.dot.active {
+  background: var(--accent);
+}
+
+.onboarding-skip {
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+/* --- Dashboard --- */
+.dashboard {
+  padding: 88px 20px 40px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.dashboard-greeting {
+  font-size: 1.6rem;
+  color: var(--ink);
+  margin: 0;
+}
+
+.dashboard-sub {
+  color: var(--ink-soft);
+  margin: 4px 0 20px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.dash-card {
+  position: relative;
+  background: var(--card-bg);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.dash-card:hover {
+  transform: translateY(-2px);
+}
+
+.dash-card-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 24px 12px;
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+}
+
+.dash-card-icon {
+  font-size: 2rem;
+}
+
+.dash-card-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.dash-card-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink-soft);
+  font-size: 1rem;
+}
+
+.dash-card-remove:hover {
+  color: var(--accent);
+}
+
+.dash-card-add {
+  border: 2px dashed var(--paper-dot);
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 12px;
+  border-radius: var(--radius-card);
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+}
+
+.dash-card-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.dashboard-limit {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  margin-top: 20px;
+}
+
+/* --- Elección VINKI-VINKI (paso 1) --- */
+.vinki-choice {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.vinki-choice-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: var(--card-bg);
+  border: none;
+  border-radius: var(--radius-card);
+  padding: 22px 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.12s ease;
+}
+
+.vinki-choice-btn:hover {
+  transform: translateY(-2px);
+}
+
+.vinki-choice-icon {
+  font-size: 1.8rem;
+}
+
+/* --- Selección múltiple --- */
+.board-select-btn {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 25;
+}
+
+.select-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.select-row input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+.select-row-text {
+  flex: 1;
+  word-break: break-word;
+  color: var(--ink);
+}
+
+.btn-delete {
+  background: #c0492f;
+  margin-top: 8px;
+}
+
+/* --- Topbar izquierda (volver + título) --- */
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.topbar-back {
+  background: var(--card-bg);
+  font-size: 1.3rem;
+}
+
+.topbar-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40vw;
+}
+
+/* --- Desactivar animaciones (configuración) --- */
+body.no-animations *,
+body.no-animations *::before,
+body.no-animations *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* --- Móvil --- */
+@media (max-width: 600px) {
+  .topbar {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .topbar-title {
+    font-size: 1.1rem;
+  }
+
+  .btn-pill {
+    font-size: 0.75rem;
+    padding: 7px 11px;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .card-item {
+    width: 150px;
+  }
+
+  .preview-thumb {
+    height: 72px;
+  }
+
+  .fab {
+    width: 52px;
+    height: 52px;
+  }
+
+  .fab-wrapper {
+    bottom: 16px;
+    right: 16px;
+  }
+
+  .board-select-btn {
+    bottom: 16px;
+    left: 16px;
+  }
+
+  .modal {
+    padding: 16px;
+    max-height: 85vh;
+    border-radius: 16px;
+  }
+
+  .dashboard {
+    padding: 130px 14px 32px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .canvas-board {
+    padding-top: 110px;
+  }
+
+  .session-view {
+    padding-top: 110px;
+  }
+
+  .vinki-choice {
+    flex-direction: column;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
