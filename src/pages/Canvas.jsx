@@ -12,7 +12,7 @@ import VropPanel from '../components/VropPanel'
 import VropThreadView from '../components/VropThreadView'
 
 export default function Canvas({ session }) {
-  const profile = useProfile(session)
+  const { profile, error: profileError } = useProfile(session)
   const vinki = useVinkiSessions(profile)
   const vrop = useVropThreads(profile)
 
@@ -75,7 +75,36 @@ export default function Canvas({ session }) {
   const activeCanvas = canvases.find((c) => c.id === activeId)
   const openSession = vinki.sessions.find((s) => s.id === openSessionId)
 
-  if (profile === undefined || loadingCanvases) {
+  if (profile === undefined) {
+    return (
+      <div className="page">
+        <p className="canvas-empty">Cargando...</p>
+      </div>
+    )
+  }
+
+  if (profileError || !profile) {
+    return (
+      <div className="page">
+        <div className="pinned-card" style={{ textAlign: 'center' }}>
+          <h2 className="brand-title" style={{ fontSize: '1.6rem' }}>
+            Ups
+          </h2>
+          <p className="canvas-empty" style={{ margin: '12px 0' }}>
+            No pudimos cargar tu perfil.
+          </p>
+          {profileError && (
+            <p className="message error">{profileError}</p>
+          )}
+          <button className="btn-primary" onClick={handleLogout}>
+            Salir e intentar de nuevo
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadingCanvases) {
     return (
       <div className="page">
         <p className="canvas-empty">Cargando...</p>
