@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { getYoutubeId, getDomain } from '../lib/linkPreview'
+import { compressImage } from '../lib/compressImage'
 
-const TYPE_LABEL = {
-  note: 'Nota',
-  link: 'Link',
-  image: 'Imagen'
-}
+const TYPE_LABEL = { note: 'Nota', link: 'Link', image: 'Imagen' }
 
-export default function CardEditPanel({ card, onUpdate, onClose }) {
+export default function CardEditPanel({
+  card,
+  onUpdate,
+  onRemove,
+  onSendToVrop,
+  onClose
+}) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -30,6 +33,27 @@ export default function CardEditPanel({ card, onUpdate, onClose }) {
         {card.type === 'note' && <NoteEditor card={card} onUpdate={onUpdate} />}
         {card.type === 'link' && <LinkEditor card={card} onUpdate={onUpdate} />}
         {card.type === 'image' && <ImageEditor card={card} onUpdate={onUpdate} />}
+
+        <div className="panel-actions">
+          {onSendToVrop && (
+            <button
+              type="button"
+              className="btn-pill"
+              onClick={() => onSendToVrop(card)}
+            >
+              ➤ Enviar a Vrop
+            </button>
+          )}
+          {onRemove && (
+            <button
+              type="button"
+              className="btn-pill btn-pill-muted btn-danger"
+              onClick={() => onRemove(card.id)}
+            >
+              Eliminar
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -37,7 +61,6 @@ export default function CardEditPanel({ card, onUpdate, onClose }) {
 
 function NoteEditor({ card, onUpdate }) {
   const [text, setText] = useState(card.content?.text || '')
-
   return (
     <textarea
       className="panel-note-text"
@@ -55,12 +78,8 @@ function LinkEditor({ card, onUpdate }) {
   const [title, setTitle] = useState(card.title || '')
   const [note, setNote] = useState(card.content?.note || '')
 
-  function save(patch) {
-    onUpdate(card.id, {
-      title,
-      content: { ...card.content, url, note },
-      ...patch
-    })
+  function save() {
+    onUpdate(card.id, { title, content: { ...card.content, url, note } })
   }
 
   const youtubeId = getYoutubeId(card.content?.url)
@@ -69,15 +88,13 @@ function LinkEditor({ card, onUpdate }) {
   return (
     <div className="panel-link-body">
       {youtubeId && (
-        <a href={card.content.url} target="_blank" rel="noreferrer">
-          <img
-            className="panel-link-thumb"
-            src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
-            alt=""
-          />
-        </a>
+        <iframe
+          className="panel-youtube"
+          src={`https://www.youtube.com/embed/${youtubeId}`}
+          title="YouTube"
+          allowFullScreen
+        />
       )}
-
       {!youtubeId && card.content?.url && (
         <a
           className="card-link-chip"
@@ -95,41 +112,35 @@ function LinkEditor({ card, onUpdate }) {
       )}
 
       <div className="field">
-        <label htmlFor={`url-${card.id}`}>Link</label>
+        <label>Link</label>
         <input
-          id={`url-${card.id}`}
           className="card-link-input"
           type="url"
           value={url}
           placeholder="https://..."
-          autoFocus
           onChange={(e) => setUrl(e.target.value)}
-          onBlur={() => save()}
+          onBlur={save}
         />
       </div>
-
       <div className="field">
-        <label htmlFor={`title-${card.id}`}>Título</label>
+        <label>Título</label>
         <input
-          id={`title-${card.id}`}
           className="card-link-input"
           type="text"
           value={title}
           placeholder="Título (opcional)"
           onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => save()}
+          onBlur={save}
         />
       </div>
-
       <div className="field">
-        <label htmlFor={`note-${card.id}`}>Nota</label>
+        <label>Nota</label>
         <textarea
-          id={`note-${card.id}`}
           className="card-link-note"
           value={note}
           placeholder="Nota o comentario (opcional)"
           onChange={(e) => setNote(e.target.value)}
-          onBlur={() => save()}
+          onBlur={save}
         />
       </div>
     </div>
@@ -140,20 +151,27 @@ function ImageEditor({ card, onUpdate }) {
   const [title, setTitle] = useState(card.title || '')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [zoom, setZoom] = useState(false)
+  const size = card.content?.size || 200
 
   async function handleFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
-
     setUploading(true)
     setError('')
 
-    const ext = file.name.split('.').pop()
-    const path = `${card.id}-${Date.now()}.${ext}`
+    let toUpload = file
+    try {
+      toUpload = await compressImage(file)
+    } catch {
+      // si falla la compresión, subimos el original
+    }
 
+    const ext = 'jpg'
+    const path = `${card.id}-${Date.now()}.${ext}`
     const { error: uploadError } = await supabase.storage
       .from('card-images')
-      .upload(path, file, { upsert: true })
+      .upload(path, toUpload, { upsert: true })
 
     if (uploadError) {
       setUploading(false)
@@ -162,23 +180,44 @@ function ImageEditor({ card, onUpdate }) {
     }
 
     const { data } = supabase.storage.from('card-images').getPublicUrl(path)
-
     setUploading(false)
     onUpdate(card.id, { content: { ...card.content, url: data.publicUrl } })
+  }
+
+  function setSize(px) {
+    onUpdate(card.id, { content: { ...card.content, size: px } })
   }
 
   return (
     <div className="panel-image-body">
       {card.content?.url ? (
-        <img className="panel-image-preview" src={card.content.url} alt="" />
+        <img
+          className={`panel-image-preview${zoom ? ' zoomed' : ''}`}
+          src={card.content.url}
+          alt=""
+          onClick={() => setZoom((z) => !z)}
+        />
       ) : (
         <p className="canvas-empty" style={{ margin: '8px 0' }}>
           Todavía no agregaste una imagen.
         </p>
       )}
 
+      {card.content?.url && (
+        <div className="field">
+          <label>Tamaño en el lienzo</label>
+          <input
+            type="range"
+            min="120"
+            max="360"
+            value={size}
+            onChange={(e) => setSize(Number(e.target.value))}
+          />
+        </div>
+      )}
+
       <label className="file-input-label">
-        {uploading ? 'Subiendo...' : 'Elegir imagen'}
+        {uploading ? 'Subiendo...' : card.content?.url ? 'Cambiar imagen' : 'Elegir imagen'}
         <input
           className="file-input"
           type="file"
@@ -191,9 +230,8 @@ function ImageEditor({ card, onUpdate }) {
       {error && <p className="message error">{error}</p>}
 
       <div className="field">
-        <label htmlFor={`title-${card.id}`}>Título</label>
+        <label>Título</label>
         <input
-          id={`title-${card.id}`}
           className="card-link-input"
           type="text"
           value={title}
