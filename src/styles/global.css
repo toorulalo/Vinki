@@ -1861,3 +1861,244 @@ body.no-animations *::after {
     bottom: 80px;
   }
 }
+
+/* ============ Overhaul UX/UI ============ */
+
+/* El mapa tiene su propio patrón punteado que acompaña zoom y paneo */
+.canvas-map {
+  background-color: var(--paper);
+  background-image: radial-gradient(var(--paper-dot) 1.4px, transparent 1.4px);
+}
+
+/* Zoom animado suave al centrar */
+.world-animate {
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Aparición de tarjetas nuevas */
+.card-pop {
+  animation: card-pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+@keyframes card-pop-in {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Tarjeta enfocada (tras doble tap) */
+.card-item.focused {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 12px 26px rgba(74, 59, 34, 0.32);
+}
+
+/* Barra flotante "Abrir" tras enfocar */
+.focus-bar {
+  position: fixed;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card-bg);
+  border-radius: 999px;
+  padding: 6px;
+  box-shadow: var(--shadow-card);
+  animation: modal-in 0.2s ease;
+}
+
+.focus-open-btn {
+  width: auto;
+  padding: 10px 22px;
+  border-radius: 999px;
+}
+
+/* Coach mark (pista de uso, una sola vez) */
+.coach-mark {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ink);
+  color: var(--accent-ink);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  box-shadow: var(--shadow-card);
+  max-width: 92vw;
+  animation: modal-in 0.25s ease;
+}
+
+.coach-mark-close {
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.78rem;
+  border-radius: 999px;
+  padding: 6px 12px;
+  flex-shrink: 0;
+}
+
+/* Micro-interacciones globales */
+.btn-pill,
+.btn-primary,
+.fab,
+.card-control-btn,
+.dash-card-main,
+.vinki-choice-btn,
+.fab-option {
+  transition: transform 0.1s ease, filter 0.15s ease, background 0.15s ease;
+}
+
+.btn-pill:active,
+.btn-primary:active,
+.fab:active,
+.vinki-choice-btn:active,
+.dash-card-main:active {
+  transform: scale(0.96);
+}
+
+.fab {
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.fab:hover {
+  transform: scale(1.06);
+}
+
+/* Notas con marca de tiempo (videos de YouTube) */
+.video-notes {
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.video-notes-title {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.video-note-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--paper-dot);
+}
+
+.video-note-row:last-of-type {
+  border-bottom: none;
+}
+
+.video-note-time {
+  border: none;
+  background: var(--note-blue);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+
+.video-note-time:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.video-note-text {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.video-note-del {
+  width: 26px;
+  height: 26px;
+  font-size: 0.8rem;
+}
+
+.video-note-add {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.video-note-time-input {
+  width: 72px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.video-note-add .btn-pill {
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+
+/* Música en vivo */
+.live-listen-btn {
+  position: fixed;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 28;
+  animation: modal-in 0.25s ease;
+}
+
+.live-music {
+  position: fixed;
+  bottom: 96px;
+  left: 16px;
+  z-index: 28;
+  width: 260px;
+  background: var(--card-bg);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  animation: modal-in 0.2s ease;
+}
+
+.live-music-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 6px 8px 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--ink);
+  background: var(--note-yellow);
+}
+
+.music-player-wrap iframe {
+  border-radius: 10px;
+}
+
+@media (max-width: 600px) {
+  .focus-bar,
+  .live-listen-btn {
+    bottom: 86px;
+  }
+
+  .live-music {
+    width: calc(100vw - 32px);
+  }
+
+  .coach-mark {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+}
