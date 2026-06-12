@@ -1,18 +1,26 @@
 import { useState, useRef } from 'react'
 import { useCards, MAX_CARDS } from '../lib/useCards'
 import { useViewport, useViewportWheelBinding } from '../lib/useViewport'
+import { burstConfetti, playChime, proximityVolume } from '../lib/effects'
 import CardItem from './CardItem'
 import CardEditPanel from './CardEditPanel'
 import AddCardMenu from './AddCardMenu'
 
-const TYPE_LABEL = { note: 'Nota', link: 'Link', image: 'Imagen' }
+const TYPE_LABEL = {
+  note: 'Nota',
+  link: 'Link',
+  image: 'Imagen',
+  pdf: 'PDF',
+  timer: 'Temporizador',
+  spotify: 'Spotify'
+}
 
 function cardSummary(card) {
   if (card.type === 'note') return card.content?.text?.slice(0, 60) || 'Nota vacía'
   return card.title || card.content?.url?.slice(0, 60) || `${TYPE_LABEL[card.type]} vacío`
 }
 
-export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, onSendToVrop }) {
+export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, onSendToVrop, onCardOpened }) {
   const { cards, addCard, updateCard, updateCardLocal, removeCard } =
     useCards(canvasId)
   const containerRef = useRef(null)
@@ -33,6 +41,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
     // Centrar la vista en la tarjeta (su centro aproximado) con zoom
     vp.centerOn(card.x + 90, card.y + 70, 1.4)
     setOpenCard(card)
+    onCardOpened?.(card)
   }
 
   async function handleAdd(type) {
@@ -65,6 +74,22 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
   }
 
   const { view } = vp
+
+  function handleTimerComplete(goalMinutes, card) {
+    burstConfetti()
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (rect) {
+      const cardScreenX = view.x + (card.x + 90) * view.scale
+      const cardScreenY = view.y + (card.y + 70) * view.scale
+      const dist = Math.hypot(
+        cardScreenX - rect.width / 2,
+        cardScreenY - rect.height / 2
+      )
+      playChime(proximityVolume(dist))
+    } else {
+      playChime(1)
+    }
+  }
 
   return (
     <div className="board-wrapper">
@@ -111,6 +136,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
               onUpdate={updateCard}
               onUpdateLocal={updateCardLocal}
               onOpen={openAndCenter}
+              onTimerComplete={handleTimerComplete}
               readOnly={readOnly}
             />
           ))}
@@ -124,13 +150,18 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
       {openCard && (
         <CardEditPanel
           card={cards.find((c) => c.id === openCard.id) || openCard}
-          onUpdate={updateCard}
-          onRemove={(id) => {
-            removeCard(id)
-            setOpenCard(null)
-          }}
-          onSendToVrop={onSendToVrop}
+          onUpdate={readOnly ? undefined : updateCard}
+          onRemove={
+            readOnly
+              ? undefined
+              : (id) => {
+                  removeCard(id)
+                  setOpenCard(null)
+                }
+          }
+          onSendToVrop={readOnly ? undefined : onSendToVrop}
           onClose={() => setOpenCard(null)}
+          readOnly={readOnly}
         />
       )}
 

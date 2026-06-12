@@ -3,7 +3,10 @@ import { useState } from 'react'
 const OPTIONS = [
   { type: 'note', label: 'Nota', icon: '📝' },
   { type: 'link', label: 'Link', icon: '🔗' },
-  { type: 'image', label: 'Imagen', icon: '🖼️' }
+  { type: 'image', label: 'Imagen', icon: '🖼️' },
+  { type: 'pdf', label: 'PDF', icon: '📄' },
+  { type: 'timer', label: 'Temporizador', icon: '⏱️' },
+  { type: 'spotify', label: 'Spotify', icon: '🎵' }
 ]
 
 export default function AddCardMenu({ onAdd, disabled }) {

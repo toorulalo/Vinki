@@ -1,10 +1,15 @@
 import { useRef, useState, useEffect } from 'react'
 import { getYoutubeId, getDomain } from '../lib/linkPreview'
+import TimerEmbed from './TimerEmbed'
+import { SpotifyTower } from './SpotifyEmbed'
 
 const TYPE_LABEL = {
   note: 'Nota',
   link: 'Link',
-  image: 'Imagen'
+  image: 'Imagen',
+  pdf: 'PDF',
+  timer: 'Temporizador',
+  spotify: 'Spotify'
 }
 
 const DOUBLE_TAP_MS = 320
@@ -23,6 +28,7 @@ export default function CardItem({
   onUpdate,
   onUpdateLocal,
   onOpen,
+  onTimerComplete,
   readOnly = false
 }) {
   const [moveMode, setMoveMode] = useState(false)
@@ -33,12 +39,32 @@ export default function CardItem({
   useEffect(() => () => clearTimeout(holdTimer.current), [])
 
   function handlePointerDown(e) {
-    if (readOnly) return
-    if (e.target.closest('.card-controls, .move-bar')) return
+    if (e.target.closest('.card-controls, .move-bar, button, a, input, iframe')) return
     e.stopPropagation()
 
     const startX = e.clientX
     const startY = e.clientY
+
+    if (readOnly) {
+      function onUpReadOnly(ev) {
+        window.removeEventListener('pointerup', onUpReadOnly)
+        if (
+          Math.abs(ev.clientX - startX) > MOVE_CANCEL ||
+          Math.abs(ev.clientY - startY) > MOVE_CANCEL
+        ) {
+          return
+        }
+        const now = Date.now()
+        if (now - lastTapRef.current < DOUBLE_TAP_MS) {
+          lastTapRef.current = 0
+          onOpen?.(card)
+        } else {
+          lastTapRef.current = now
+        }
+      }
+      window.addEventListener('pointerup', onUpReadOnly)
+      return
+    }
 
     if (moveMode) {
       const origX = card.x
@@ -130,7 +156,7 @@ export default function CardItem({
 
       {!card.minimized && (
         <div className="card-preview">
-          <CardPreview card={card} />
+          <CardPreview card={card} onTimerComplete={onTimerComplete} />
         </div>
       )}
 
@@ -146,11 +172,30 @@ export default function CardItem({
   )
 }
 
-function CardPreview({ card }) {
+function CardPreview({ card, onTimerComplete }) {
   if (card.type === 'note') {
     const text = card.content?.text?.trim()
     return (
       <p className="preview-note">{text || 'Nota vacía — doble tap'}</p>
+    )
+  }
+
+  if (card.type === 'timer') {
+    return <TimerEmbed card={card} onComplete={onTimerComplete} />
+  }
+
+  if (card.type === 'spotify') {
+    return <SpotifyTower card={card} />
+  }
+
+  if (card.type === 'pdf') {
+    return (
+      <div className="preview-pdf">
+        <span className="preview-pdf-icon">📄</span>
+        <span className="preview-pdf-name">
+          {card.title || card.content?.filename || 'Sin archivo — doble tap'}
+        </span>
+      </div>
     )
   }
 
