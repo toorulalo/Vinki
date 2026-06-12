@@ -5,21 +5,20 @@ import { useCanvases } from '../lib/useCanvases'
 import { useVinkiSessions } from '../lib/useVinkiSessions'
 import { useVropThreads } from '../lib/useVropThreads'
 import CanvasBoard from '../components/CanvasBoard'
-import CanvasTabs from '../components/CanvasTabs'
 import VinkiPanel from '../components/VinkiPanel'
 import SessionView from '../components/SessionView'
 import VropPanel from '../components/VropPanel'
 import VropThreadView from '../components/VropThreadView'
 import NameCanvasDialog from '../components/NameCanvasDialog'
+import Onboarding from '../components/Onboarding'
+import Dashboard from '../components/Dashboard'
+import SettingsPanel, { getAnimationsEnabled } from '../components/SettingsPanel'
 
 export default function Canvas({ session }) {
   const { profile, error: profileError } = useProfile(session)
   const vinki = useVinkiSessions(profile)
   const vrop = useVropThreads(profile)
 
-  // Los lienzos creados automáticamente para sesiones tipo "Proyecto" son
-  // técnicamente del usuario, pero no deben aparecer como un lienzo personal
-  // más ni contar contra el límite de 5.
   const projectCanvasIds = vinki.sessions
     .filter((s) => s.mode === 'proyecto' && s.shared_canvas_id)
     .map((s) => s.shared_canvas_id)
@@ -33,35 +32,36 @@ export default function Canvas({ session }) {
 
   const canvases = allCanvases.filter((c) => !projectCanvasIds.includes(c.id))
 
-  const [activeId, setActiveId] = useState(null)
+  const [openCanvasId, setOpenCanvasId] = useState(null)
+  const [displayName, setDisplayName] = useState('')
   const [notice, setNotice] = useState('')
   const [showVinkiPanel, setShowVinkiPanel] = useState(false)
   const [openSessionId, setOpenSessionId] = useState(null)
   const [showVropPanel, setShowVropPanel] = useState(false)
   const [openVropThread, setOpenVropThread] = useState(null)
   const [showNewCanvasDialog, setShowNewCanvasDialog] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
-    if (canvases.length > 0 && !canvases.some((c) => c.id === activeId)) {
-      setActiveId(canvases[0].id)
-    }
-  }, [canvases, activeId])
+    if (profile?.name) setDisplayName(profile.name)
+  }, [profile])
 
-  function handleAddCanvas() {
-    setShowNewCanvasDialog(true)
-  }
+  useEffect(() => {
+    document.body.classList.toggle('no-animations', !getAnimationsEnabled())
+  }, [])
 
   async function handleCreateCanvas(name) {
     const { data, error } = await addCanvas(name)
     if (!error) {
       setShowNewCanvasDialog(false)
-      if (data) setActiveId(data.id)
+      if (data) setOpenCanvasId(data.id)
     }
     return { error }
   }
 
   function handleRemoveCanvas(id) {
     if (!window.confirm('¿Eliminar este lienzo y todas sus tarjetas?')) return
+    if (openCanvasId === id) setOpenCanvasId(null)
     removeCanvas(id)
   }
 
@@ -79,7 +79,7 @@ export default function Canvas({ session }) {
     await vinki.leaveSession(sessionId)
   }
 
-  const activeCanvas = canvases.find((c) => c.id === activeId)
+  const openCanvas = canvases.find((c) => c.id === openCanvasId)
   const openSession = vinki.sessions.find((s) => s.id === openSessionId)
 
   if (profile === undefined) {
@@ -94,15 +94,11 @@ export default function Canvas({ session }) {
     return (
       <div className="page">
         <div className="pinned-card" style={{ textAlign: 'center' }}>
-          <h2 className="brand-title" style={{ fontSize: '1.6rem' }}>
-            Ups
-          </h2>
+          <h2 className="brand-title" style={{ fontSize: '1.6rem' }}>Ups</h2>
           <p className="canvas-empty" style={{ margin: '12px 0' }}>
             No pudimos cargar tu perfil.
           </p>
-          {profileError && (
-            <p className="message error">{profileError}</p>
-          )}
+          {profileError && <p className="message error">{profileError}</p>}
           <button className="btn-primary" onClick={handleLogout}>
             Salir e intentar de nuevo
           </button>
@@ -119,30 +115,34 @@ export default function Canvas({ session }) {
     )
   }
 
+  // Primera vez: intro + nombre + primer lienzo
   if (canvases.length === 0) {
-    return (
-      <NameCanvasDialog
-        title="Creá tu primer lienzo"
-        defaultName="Mi lienzo"
-        onCreate={handleCreateCanvas}
-      />
-    )
+    return <Onboarding profile={profile} onCreateCanvas={handleCreateCanvas} />
   }
+
+  const inBoard = Boolean(openCanvas) || Boolean(openSession)
 
   return (
     <div>
       <header className="topbar">
-        <h2 className="topbar-title">VINKI</h2>
-
-        {!openSession && (
-          <CanvasTabs
-            canvases={canvases}
-            activeId={activeId}
-            onSelect={setActiveId}
-            onAdd={handleAddCanvas}
-            onRemove={handleRemoveCanvas}
-          />
-        )}
+        <div className="topbar-left">
+          {inBoard ? (
+            <button
+              type="button"
+              className="card-control-btn topbar-back"
+              onClick={() => {
+                setOpenCanvasId(null)
+                setOpenSessionId(null)
+              }}
+              aria-label="Volver al inicio"
+            >
+              ‹
+            </button>
+          ) : null}
+          <h2 className="topbar-title">
+            {openSession ? 'VINKI-VINKI' : openCanvas ? openCanvas.name : 'VINKI'}
+          </h2>
+        </div>
 
         <div className="topbar-actions">
           <button
@@ -150,18 +150,27 @@ export default function Canvas({ session }) {
             className="btn-pill"
             onClick={() => setShowVropPanel(true)}
           >
-            Vrop It
-            {vrop.threads.length > 0 ? ` (${vrop.threads.length})` : ''}
+            Vrop It{vrop.threads.length > 0 ? ` (${vrop.threads.length})` : ''}
           </button>
           <button
             type="button"
             className="btn-pill"
             onClick={() => setShowVinkiPanel(true)}
           >
-            VINKI-VINKI
-            {vinki.sessions.length > 0 ? ` (${vinki.sessions.length})` : ''}
+            VINKI-VINKI{vinki.sessions.length > 0 ? ` (${vinki.sessions.length})` : ''}
           </button>
-          <button className="btn-pill btn-pill-muted" onClick={handleLogout}>
+          <button
+            type="button"
+            className="btn-pill btn-pill-muted"
+            onClick={() => setShowSettings(true)}
+            aria-label="Configuración"
+          >
+            ⚙
+          </button>
+          <button
+            className="btn-pill btn-pill-muted"
+            onClick={handleLogout}
+          >
             Salir
           </button>
         </div>
@@ -176,12 +185,18 @@ export default function Canvas({ session }) {
           vrop={vrop}
           onClose={() => setOpenSessionId(null)}
         />
-      ) : (
+      ) : openCanvas ? (
         <CanvasBoard
-          canvasId={activeId}
-          emptyLabel={`${
-            activeCanvas?.name || 'Tu lienzo'
-          } está vacío. Tocá el botón “+” para agregar tu primera nota, link o imagen.`}
+          canvasId={openCanvas.id}
+          emptyLabel={`${openCanvas.name} está vacío. Tocá el botón "+" para agregar tu primera nota, link o imagen.`}
+        />
+      ) : (
+        <Dashboard
+          profile={{ ...profile, name: displayName || profile.name }}
+          canvases={canvases}
+          onOpen={setOpenCanvasId}
+          onAdd={() => setShowNewCanvasDialog(true)}
+          onRemove={handleRemoveCanvas}
         />
       )}
 
@@ -191,6 +206,14 @@ export default function Canvas({ session }) {
           defaultName="Nuevo lienzo"
           onCreate={handleCreateCanvas}
           onClose={() => setShowNewCanvasDialog(false)}
+        />
+      )}
+
+      {showSettings && (
+        <SettingsPanel
+          profile={profile}
+          onNameChanged={setDisplayName}
+          onClose={() => setShowSettings(false)}
         />
       )}
 
