@@ -40,7 +40,7 @@ export default function SendToVropDialog({
     const { error: sendError } = await sendVropItem({
       threadId: thread.id,
       type: card.type,
-      content: card.content,
+      content: { ...card.content, title: card.title },
       note,
       senderId: profile.id
     })

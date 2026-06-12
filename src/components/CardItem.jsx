@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { supabase } from '../lib/supabaseClient'
 
 const TYPE_LABEL = {
   note: 'Nota',
@@ -121,43 +122,136 @@ function NoteBody({ card, onUpdate }) {
   )
 }
 
+function getYoutubeId(url) {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    if (u.hostname.includes('youtu.be')) {
+      return u.pathname.slice(1) || null
+    }
+    if (u.hostname.includes('youtube.com')) {
+      if (u.pathname === '/watch') return u.searchParams.get('v')
+      if (u.pathname.startsWith('/shorts/')) {
+        return u.pathname.split('/')[2] || null
+      }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+function getDomain(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return ''
+  }
+}
+
 function LinkBody({ card, onUpdate }) {
   const [url, setUrl] = useState(card.content?.url || '')
-  const hasUrl = Boolean(card.content?.url)
+  const [title, setTitle] = useState(card.title || '')
+  const [note, setNote] = useState(card.content?.note || '')
 
-  function save() {
-    onUpdate(card.id, { content: { ...card.content, url } })
+  function save(patch) {
+    onUpdate(card.id, {
+      title,
+      content: { ...card.content, url, note },
+      ...patch
+    })
   }
+
+  const youtubeId = getYoutubeId(card.content?.url)
+  const domain = getDomain(card.content?.url)
 
   return (
     <div className="card-link-body">
+      {youtubeId && (
+        <a href={card.content.url} target="_blank" rel="noreferrer">
+          <img
+            className="card-link-thumb"
+            src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
+            alt=""
+            loading="lazy"
+          />
+        </a>
+      )}
+
+      {!youtubeId && card.content?.url && (
+        <a
+          className="card-link-chip"
+          href={card.content.url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <img
+            className="card-link-favicon"
+            src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+            alt=""
+          />
+          <span className="card-link-domain">{domain}</span>
+        </a>
+      )}
+
+      {card.title && <p className="card-link-title">{card.title}</p>}
+
       <input
         className="card-link-input"
         type="url"
         value={url}
         placeholder="https://..."
         onChange={(e) => setUrl(e.target.value)}
-        onBlur={save}
+        onBlur={() => save()}
       />
-      {hasUrl && (
-        <a
-          className="card-link-preview"
-          href={card.content.url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {card.content.url}
-        </a>
-      )}
+      <input
+        className="card-link-input"
+        type="text"
+        value={title}
+        placeholder="Título (opcional)"
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={() => save()}
+      />
+      <textarea
+        className="card-link-note"
+        value={note}
+        placeholder="Nota o comentario (opcional)"
+        onChange={(e) => setNote(e.target.value)}
+        onBlur={() => save()}
+      />
     </div>
   )
 }
 
 function ImageBody({ card, onUpdate }) {
-  const [url, setUrl] = useState(card.content?.url || '')
+  const [title, setTitle] = useState(card.title || '')
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
 
-  function save() {
-    onUpdate(card.id, { content: { ...card.content, url } })
+  async function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    setError('')
+
+    const ext = file.name.split('.').pop()
+    const path = `${card.id}-${Date.now()}.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('card-images')
+      .upload(path, file, { upsert: true })
+
+    if (uploadError) {
+      setUploading(false)
+      setError('No se pudo subir la imagen.')
+      return
+    }
+
+    const { data } = supabase.storage.from('card-images').getPublicUrl(path)
+
+    setUploading(false)
+    onUpdate(card.id, { content: { ...card.content, url: data.publicUrl } })
   }
 
   return (
@@ -170,13 +264,27 @@ function ImageBody({ card, onUpdate }) {
           loading="lazy"
         />
       )}
+
+      <label className="file-input-label">
+        {uploading ? 'Subiendo...' : 'Elegir imagen'}
+        <input
+          className="file-input"
+          type="file"
+          accept="image/*"
+          onChange={handleFile}
+          disabled={uploading}
+        />
+      </label>
+
+      {error && <p className="message error">{error}</p>}
+
       <input
         className="card-link-input"
-        type="url"
-        value={url}
-        placeholder="URL de la imagen"
-        onChange={(e) => setUrl(e.target.value)}
-        onBlur={save}
+        type="text"
+        value={title}
+        placeholder="Título (opcional)"
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={() => onUpdate(card.id, { title })}
       />
     </div>
   )
