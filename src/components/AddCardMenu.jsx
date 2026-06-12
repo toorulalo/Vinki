@@ -6,7 +6,7 @@ const OPTIONS = [
   { type: 'image', label: 'Imagen', icon: '🖼️' },
   { type: 'pdf', label: 'PDF', icon: '📄' },
   { type: 'timer', label: 'Temporizador', icon: '⏱️' },
-  { type: 'spotify', label: 'Spotify', icon: '🎵' }
+  { type: 'spotify', label: 'Música', icon: '🎵' }
 ]
 
 export default function AddCardMenu({ onAdd, disabled }) {
