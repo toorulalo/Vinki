@@ -144,36 +144,32 @@ export default function Canvas({ session }) {
           </h2>
         </div>
 
-        <div className="topbar-actions">
-          <button
-            type="button"
-            className="btn-pill"
-            onClick={() => setShowVropPanel(true)}
-          >
-            Vrop It{vrop.threads.length > 0 ? ` (${vrop.threads.length})` : ''}
-          </button>
-          <button
-            type="button"
-            className="btn-pill"
-            onClick={() => setShowVinkiPanel(true)}
-          >
-            VINKI-VINKI{vinki.sessions.length > 0 ? ` (${vinki.sessions.length})` : ''}
-          </button>
-          <button
-            type="button"
-            className="btn-pill btn-pill-muted"
-            onClick={() => setShowSettings(true)}
-            aria-label="Configuración"
-          >
-            ⚙
-          </button>
-          <button
-            className="btn-pill btn-pill-muted"
-            onClick={handleLogout}
-          >
-            Salir
-          </button>
-        </div>
+        {!inBoard && (
+          <div className="topbar-actions">
+            <button
+              type="button"
+              className="btn-pill"
+              onClick={() => setShowVropPanel(true)}
+            >
+              Vrop It{vrop.threads.length > 0 ? ` (${vrop.threads.length})` : ''}
+            </button>
+            <button
+              type="button"
+              className="btn-pill"
+              onClick={() => setShowVinkiPanel(true)}
+            >
+              VINKI-VINKI{vinki.sessions.length > 0 ? ` (${vinki.sessions.length})` : ''}
+            </button>
+            <button
+              type="button"
+              className="btn-pill btn-pill-muted"
+              onClick={() => setShowSettings(true)}
+              aria-label="Configuración"
+            >
+              ⚙
+            </button>
+          </div>
+        )}
       </header>
 
       {notice && <div className="toast">{notice}</div>}
