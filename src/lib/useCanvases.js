@@ -12,7 +12,10 @@ export function useCanvases(profile, hiddenCanvasIds = []) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!profile) return
+    if (!profile) {
+      setLoading(false)
+      return
+    }
     let active = true
 
     async function init() {
