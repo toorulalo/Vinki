@@ -10,6 +10,7 @@ import VinkiPanel from '../components/VinkiPanel'
 import SessionView from '../components/SessionView'
 import VropPanel from '../components/VropPanel'
 import VropThreadView from '../components/VropThreadView'
+import NameCanvasDialog from '../components/NameCanvasDialog'
 
 export default function Canvas({ session }) {
   const { profile, error: profileError } = useProfile(session)
@@ -38,6 +39,7 @@ export default function Canvas({ session }) {
   const [openSessionId, setOpenSessionId] = useState(null)
   const [showVropPanel, setShowVropPanel] = useState(false)
   const [openVropThread, setOpenVropThread] = useState(null)
+  const [showNewCanvasDialog, setShowNewCanvasDialog] = useState(false)
 
   useEffect(() => {
     if (canvases.length > 0 && !canvases.some((c) => c.id === activeId)) {
@@ -45,12 +47,17 @@ export default function Canvas({ session }) {
     }
   }, [canvases, activeId])
 
-  async function handleAddCanvas() {
-    const { error } = await addCanvas()
-    if (error) {
-      setNotice(error.message)
-      setTimeout(() => setNotice(''), 3000)
+  function handleAddCanvas() {
+    setShowNewCanvasDialog(true)
+  }
+
+  async function handleCreateCanvas(name) {
+    const { data, error } = await addCanvas(name)
+    if (!error) {
+      setShowNewCanvasDialog(false)
+      if (data) setActiveId(data.id)
     }
+    return { error }
   }
 
   function handleRemoveCanvas(id) {
@@ -112,6 +119,16 @@ export default function Canvas({ session }) {
     )
   }
 
+  if (canvases.length === 0) {
+    return (
+      <NameCanvasDialog
+        title="Creá tu primer lienzo"
+        defaultName="Mi lienzo"
+        onCreate={handleCreateCanvas}
+      />
+    )
+  }
+
   return (
     <div>
       <header className="topbar">
@@ -130,7 +147,7 @@ export default function Canvas({ session }) {
         <div className="topbar-actions">
           <button
             type="button"
-            className="btn-link"
+            className="btn-pill"
             onClick={() => setShowVropPanel(true)}
           >
             Vrop It
@@ -138,13 +155,13 @@ export default function Canvas({ session }) {
           </button>
           <button
             type="button"
-            className="btn-link"
+            className="btn-pill"
             onClick={() => setShowVinkiPanel(true)}
           >
             VINKI-VINKI
             {vinki.sessions.length > 0 ? ` (${vinki.sessions.length})` : ''}
           </button>
-          <button className="btn-link" onClick={handleLogout}>
+          <button className="btn-pill btn-pill-muted" onClick={handleLogout}>
             Salir
           </button>
         </div>
@@ -165,6 +182,15 @@ export default function Canvas({ session }) {
           emptyLabel={`${
             activeCanvas?.name || 'Tu lienzo'
           } está vacío. Tocá el botón “+” para agregar tu primera nota, link o imagen.`}
+        />
+      )}
+
+      {showNewCanvasDialog && (
+        <NameCanvasDialog
+          title="Nuevo lienzo"
+          defaultName="Nuevo lienzo"
+          onCreate={handleCreateCanvas}
+          onClose={() => setShowNewCanvasDialog(false)}
         />
       )}
 
