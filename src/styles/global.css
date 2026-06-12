@@ -422,6 +422,83 @@ input:focus-visible {
   gap: 8px;
 }
 
+.card-link-thumb {
+  width: 100%;
+  border-radius: 8px;
+  display: block;
+  object-fit: cover;
+  max-height: 120px;
+}
+
+.card-link-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--paper-dot);
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-decoration: none;
+}
+
+.card-link-favicon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.card-link-domain {
+  font-size: 0.78rem;
+  color: var(--ink);
+  word-break: break-all;
+}
+
+.card-link-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.card-link-note {
+  width: 100%;
+  min-height: 50px;
+  border: 2px solid var(--paper-dot);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: #fff;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--ink);
+  resize: vertical;
+}
+
+.file-input-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--note-pink);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
 .card-link-input {
   font-family: var(--font-body);
   font-size: 0.85rem;
