@@ -1541,7 +1541,7 @@ body.no-animations *::after {
   padding: 6px 10px;
 }
 
-/* --- Spotify --- */
+/* --- Spotify / Música --- */
 .spotify-tower {
   display: flex;
   flex-direction: column;
@@ -1549,18 +1549,6 @@ body.no-animations *::after {
   gap: 4px;
   padding: 6px 0;
   position: relative;
-}
-
-.spotify-disc {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #1db954;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.4rem;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .spotify-waves {
@@ -1574,16 +1562,21 @@ body.no-animations *::after {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #1db954;
+  background: var(--accent);
+  opacity: 0;
+  animation: none;
+}
+
+.spotify-waves.playing span {
   opacity: 0.6;
   animation: spotify-pulse 1.6s ease-out infinite;
 }
 
-.spotify-waves span:nth-child(2) {
+.spotify-waves.playing span:nth-child(2) {
   animation-delay: 0.3s;
 }
 
-.spotify-waves span:nth-child(3) {
+.spotify-waves.playing span:nth-child(3) {
   animation-delay: 0.6s;
 }
 
@@ -1602,13 +1595,6 @@ body.no-animations *::after {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.spotify-iframe {
-  width: 100%;
-  height: 220px;
-  border: none;
-  border-radius: 12px;
 }
 
 /* --- PDF --- */
@@ -2047,58 +2033,187 @@ body.no-animations *::after {
   flex-shrink: 0;
 }
 
-/* Música en vivo */
-.live-listen-btn {
-  position: fixed;
-  bottom: 96px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 28;
-  animation: modal-in 0.25s ease;
-}
-
-.live-music {
-  position: fixed;
-  bottom: 96px;
-  left: 16px;
-  z-index: 28;
-  width: 260px;
-  background: var(--card-bg);
-  border-radius: 14px;
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-  animation: modal-in 0.2s ease;
-}
-
-.live-music-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 6px 8px 12px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: var(--ink);
-  background: var(--note-yellow);
-}
-
 .music-player-wrap iframe {
   border-radius: 10px;
 }
 
 @media (max-width: 600px) {
-  .focus-bar,
-  .live-listen-btn {
+  .focus-bar {
     bottom: 86px;
-  }
-
-  .live-music {
-    width: calc(100vw - 32px);
   }
 
   .coach-mark {
     flex-direction: column;
     gap: 8px;
+    text-align: center;
+  }
+}
+
+/* ============ Música global + modo mover (segunda ronda) ============ */
+
+/* --- Barra fija de música global (siempre visible mientras suena) --- */
+.global-music-bar {
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink);
+  color: var(--accent-ink);
+  padding: 8px 14px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  box-shadow: 0 4px 12px rgba(74, 59, 34, 0.18);
+  animation: modal-in 0.2s ease;
+}
+
+.global-music-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.global-music-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.global-music-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--accent-ink);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 1rem;
+  flex-shrink: 0;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.global-music-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.global-music-btn:active {
+  transform: scale(0.92);
+}
+
+/* --- Música dentro del panel de detalle --- */
+.music-now-playing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.music-play-btn {
+  width: auto;
+  padding: 10px 18px;
+}
+
+.music-now-time {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.music-now-hint {
+  margin: 0;
+  width: 100%;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+/* --- Disco de música: ahora es un botón real de play/pause --- */
+.spotify-disc {
+  border: none;
+  cursor: pointer;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 10px rgba(74, 59, 34, 0.25);
+  transition: transform 0.12s ease, filter 0.15s ease;
+}
+
+.spotify-disc:hover {
+  filter: brightness(1.08);
+}
+
+.spotify-disc:active {
+  transform: scale(0.94);
+}
+
+/* --- Botón "Mover" tras mantener presionado una tarjeta --- */
+.move-hint-btn {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  z-index: 35;
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 8px 14px;
+  box-shadow: var(--shadow-card);
+  animation: modal-in 0.15s ease;
+}
+
+/* --- Barra global de "modo mover" --- */
+.global-move-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: 999px;
+  padding: 10px 10px 10px 18px;
+  box-shadow: var(--shadow-card);
+  font-size: 0.85rem;
+  animation: modal-in 0.2s ease;
+  max-width: 92vw;
+}
+
+.global-move-accept {
+  border: none;
+  background: #fff;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  padding: 8px 16px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .global-music-bar {
+    font-size: 0.8rem;
+  }
+
+  .global-move-bar {
+    font-size: 0.78rem;
     text-align: center;
   }
 }
