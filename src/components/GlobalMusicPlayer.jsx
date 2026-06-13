@@ -1,24 +1,21 @@
-import { useMusicPlayer } from '../lib/MusicPlayerContext'
+import { useMusicPlayer } from './MusicPlayerContext';
 
 export default function GlobalMusicPlayer() {
-  const m = useMusicPlayer()
-  if (!m?.videoId) return null
-
+  const player = useMusicPlayer();
+  if (!player?.videoId) return null;
   return (
     <div className="global-music-bar">
       <span className="global-music-icon">🎵</span>
-      <span className="global-music-title">{m.title || 'Reproduciendo música'}</span>
+      <span className="global-music-title">{player.title || 'Reproduciendo música'}</span>
       <button
         type="button"
         className="global-music-btn"
-        onClick={m.togglePlay}
-        aria-label={m.playing ? 'Pausar' : 'Reproducir'}
+        onClick={player.togglePlay}
+        aria-label={player.playing ? 'Pausar' : 'Reproducir'}
       >
-        {m.playing ? '⏸' : '▶'}
+        {player.playing ? '⏸' : '▶'}
       </button>
-      <button type="button" className="global-music-btn" onClick={m.close} aria-label="Cerrar">
-        ×
-      </button>
+      <button type="button" className="global-music-btn" onClick={player.close} aria-label="Cerrar">×</button>
     </div>
-  )
+  );
 }
