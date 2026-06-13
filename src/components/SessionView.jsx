@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import CanvasBoard from './CanvasBoard'
 import SendToVropDialog from './SendToVropDialog'
+import LiveMusicPlayer from './LiveMusicPlayer'
+import { getYoutubeId } from '../lib/linkPreview'
 import { useSessionPresence, setLastOpenedCard } from '../lib/useSessionPresence'
 import { useSessionChannel } from '../lib/useSessionChannel'
 
@@ -10,9 +12,18 @@ function cardSummary(card) {
   if (!card) return null
   if (card.type === 'note') return card.content?.text?.slice(0, 40) || 'una nota'
   if (card.type === 'pdf') return card.title || card.content?.filename || 'un PDF'
-  if (card.type === 'spotify') return 'Spotify'
+  if (card.type === 'spotify') return 'Música'
   if (card.type === 'timer') return 'el temporizador'
   return card.title || card.content?.url?.slice(0, 40) || `un ${card.type}`
+}
+
+// Si la última tarjeta abierta por alguien es una tarjeta de Música con
+// fuente YouTube y tiene link, devuelve el videoId para poder escucharla
+// en vivo entre los dos.
+function musicVideoIdFromCard(card) {
+  if (!card || card.type !== 'spotify') return null
+  if (card.content?.source !== 'youtube') return null
+  return getYoutubeId(card.content?.url)
 }
 
 export default function SessionView({ session, profile, vrop, vinki, onClose }) {
@@ -23,6 +34,9 @@ export default function SessionView({ session, profile, vrop, vinki, onClose }) 
   const [invite, setInvite] = useState(null) // invitación entrante {fromName}
   const [askCopy, setAskCopy] = useState(null) // {sharedCanvasId, myCanvasId}
   const [showMenu, setShowMenu] = useState(false)
+  const [showLiveMusic, setShowLiveMusic] = useState(false)
+  const [musicVideoId, setMusicVideoId] = useState(null)
+  const [musicSync, setMusicSync] = useState(null)
 
   const me = participants.find((p) => p.user_id === profile.id)
   const partners = participants.filter((p) => p.user_id !== profile.id)
@@ -49,6 +63,8 @@ export default function SessionView({ session, profile, vrop, vinki, onClose }) 
       } else {
         showToast(`${payload.fromName} declinó la invitación`)
       }
+    } else if (payload.type === 'music_sync') {
+      setMusicSync({ ...payload, ts: Date.now() })
     } else if (payload.type === 'left') {
       showToast(`${payload.fromName} cerró la sesión VINKI`)
       vinki.leaveSession(session.id).then(onClose)
@@ -58,6 +74,18 @@ export default function SessionView({ session, profile, vrop, vinki, onClose }) 
   useEffect(() => {
     if (partners.length === 0) setViewingPartnerId(null)
   }, [partners.length])
+
+  // Detectar si alguien (yo o mi compañero/a) está con una tarjeta de
+  // Música/YouTube abierta, para ofrecer "Escuchar juntos".
+  const detectedVideoId =
+    musicVideoIdFromCard(partner?.last_opened_card) ||
+    musicVideoIdFromCard(me?.last_opened_card)
+
+  useEffect(() => {
+    // Si cambia el video detectado y no hay sesión de escucha abierta,
+    // actualizamos el candidato. Si ya está abierta, no la interrumpimos.
+    if (!showLiveMusic) setMusicVideoId(detectedVideoId)
+  }, [detectedVideoId, showLiveMusic])
 
   function handleCardOpened(card) {
     if (!viewingPartnerId) {
@@ -124,6 +152,30 @@ export default function SessionView({ session, profile, vrop, vinki, onClose }) 
 
   const sendProps = partners.length > 0 ? { onSendToVrop: setVropCard } : {}
 
+  function openLiveMusic() {
+    setMusicVideoId(detectedVideoId)
+    setShowLiveMusic(true)
+  }
+
+  function closeLiveMusic() {
+    setShowLiveMusic(false)
+  }
+
+  const liveMusicElement = showLiveMusic && musicVideoId && (
+    <LiveMusicPlayer
+      videoId={musicVideoId}
+      send={send}
+      incomingSync={musicSync}
+      onClose={closeLiveMusic}
+    />
+  )
+
+  const listenButton = detectedVideoId && !showLiveMusic && (
+    <button type="button" className="btn-primary live-listen-btn" onClick={openLiveMusic}>
+      🎧 Escuchar juntos
+    </button>
+  )
+
   // --- Modo Proyecto: lienzo compartido único (sin cambios respecto a antes) ---
   if (session.mode === 'proyecto') {
     return (
@@ -138,6 +190,7 @@ export default function SessionView({ session, profile, vrop, vinki, onClose }) 
           <CanvasBoard
             canvasId={session.shared_canvas_id}
             emptyLabel="Este proyecto está vacío. Agreguen la primera tarjeta."
+            onCardOpened={handleCardOpened}
             {...sendProps}
           />
         ) : (
@@ -145,6 +198,8 @@ export default function SessionView({ session, profile, vrop, vinki, onClose }) 
             Preparando el lienzo del proyecto...
           </p>
         )}
+        {listenButton}
+        {liveMusicElement}
         {toast && <div className="vinki-toast">{toast}</div>}
         {vropCard && (
           <SendToVropDialog
@@ -268,6 +323,9 @@ export default function SessionView({ session, profile, vrop, vinki, onClose }) 
           ))}
         </div>
       )}
+
+      {listenButton}
+      {liveMusicElement}
 
       {toast && (
         <div className="vinki-toast">

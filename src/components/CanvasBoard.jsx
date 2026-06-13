@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useCards, MAX_CARDS } from '../lib/useCards'
 import { useViewport, useViewportWheelBinding } from '../lib/useViewport'
 import { burstConfetti, playChime, proximityVolume } from '../lib/effects'
@@ -12,8 +12,10 @@ const TYPE_LABEL = {
   image: 'Imagen',
   pdf: 'PDF',
   timer: 'Temporizador',
-  spotify: 'Spotify'
+  spotify: 'Música'
 }
+
+const COACH_KEY = 'vinki-coach-seen'
 
 function cardSummary(card) {
   if (card.type === 'note') return card.content?.text?.slice(0, 60) || 'Nota vacía'
@@ -31,6 +33,22 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
   const [openCard, setOpenCard] = useState(null)
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState([])
+  const [focusedId, setFocusedId] = useState(null)
+  const [justAddedId, setJustAddedId] = useState(null)
+  const [showCoach, setShowCoach] = useState(false)
+
+  // Coach-mark de uso único: aparece cuando ya hay al menos una tarjeta
+  useEffect(() => {
+    if (readOnly) return
+    if (cards.length === 0) return
+    if (localStorage.getItem(COACH_KEY)) return
+    setShowCoach(true)
+  }, [readOnly, cards.length])
+
+  function dismissCoach() {
+    localStorage.setItem(COACH_KEY, '1')
+    setShowCoach(false)
+  }
 
   function flash(msg) {
     setNotice(msg)
@@ -41,7 +59,14 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
     // Centrar la vista en la tarjeta (su centro aproximado) con zoom
     vp.centerOn(card.x + 90, card.y + 70, 1.4)
     setOpenCard(card)
+    setFocusedId(null)
     onCardOpened?.(card)
+  }
+
+  function handleFocus(card) {
+    if (showCoach) dismissCoach()
+    vp.centerOn(card.x + 90, card.y + 70, 1.4)
+    setFocusedId(card.id)
   }
 
   async function handleAdd(type) {
@@ -56,7 +81,11 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
       flash(error.message)
       return
     }
-    if (data) openAndCenter(data)
+    if (data) {
+      setJustAddedId(data.id)
+      setTimeout(() => setJustAddedId((id) => (id === data.id ? null : id)), 500)
+      openAndCenter(data)
+    }
   }
 
   function toggleSelected(id) {
@@ -91,6 +120,16 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
     }
   }
 
+  function handleContainerPointerDown(e) {
+    // Tocar el fondo (no una tarjeta) quita el foco actual
+    if (focusedId && !e.target.closest('.card-item')) {
+      setFocusedId(null)
+    }
+    vp.onPointerDown(e)
+  }
+
+  const focusedCard = cards.find((c) => c.id === focusedId) || null
+
   return (
     <div className="board-wrapper">
       {notice && <div className="toast">{notice}</div>}
@@ -111,7 +150,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
       <div
         className="canvas-map"
         ref={containerRef}
-        onPointerDown={vp.onPointerDown}
+        onPointerDown={handleContainerPointerDown}
         onPointerMove={vp.onPointerMove}
         onPointerUp={vp.onPointerUp}
         onPointerCancel={vp.onPointerUp}
@@ -123,7 +162,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
         )}
 
         <div
-          className="canvas-world"
+          className={`canvas-world${vp.animating ? ' world-animate' : ''}`}
           style={{
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`
           }}
@@ -136,6 +175,9 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
               onUpdate={updateCard}
               onUpdateLocal={updateCardLocal}
               onOpen={openAndCenter}
+              onFocus={handleFocus}
+              focused={card.id === focusedId}
+              isNew={card.id === justAddedId}
               onTimerComplete={handleTimerComplete}
               readOnly={readOnly}
             />
@@ -145,6 +187,33 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
 
       {!readOnly && (
         <AddCardMenu onAdd={handleAdd} disabled={cards.length >= MAX_CARDS} />
+      )}
+
+      {focusedCard && !openCard && (
+        <div className="focus-bar">
+          <span className="card-type-tag" style={{ paddingLeft: 10 }}>
+            {TYPE_LABEL[focusedCard.type]}
+          </span>
+          <button
+            type="button"
+            className="btn-primary focus-open-btn"
+            onClick={() => openAndCenter(focusedCard)}
+          >
+            Abrir
+          </button>
+        </div>
+      )}
+
+      {showCoach && (
+        <div className="coach-mark">
+          <span>
+            💡 Doble tap para enfocar una tarjeta y tocar "Abrir". Mantené
+            presionado para moverla.
+          </span>
+          <button type="button" className="coach-mark-close" onClick={dismissCoach}>
+            Entendido
+          </button>
+        </div>
       )}
 
       {openCard && (

@@ -9,7 +9,7 @@ const TYPE_LABEL = {
   image: 'Imagen',
   pdf: 'PDF',
   timer: 'Temporizador',
-  spotify: 'Spotify'
+  spotify: 'Música'
 }
 
 const DOUBLE_TAP_MS = 320
@@ -19,7 +19,8 @@ const MOVE_CANCEL = 8
 /**
  * Tarjeta dentro del lienzo-mapa. Coordenadas en "mundo"; el zoom/pan lo
  * aplica el contenedor. Interacciones:
- *  - doble tap  -> abrir detalles (y centrar con zoom)
+ *  - doble tap  -> enfocar (centrar con zoom + resaltar). El lienzo muestra
+ *    una barra "Abrir" para entrar al detalle.
  *  - mantener   -> entrar en "modo mover" (arrastrar y luego Aceptar)
  */
 export default function CardItem({
@@ -28,6 +29,9 @@ export default function CardItem({
   onUpdate,
   onUpdateLocal,
   onOpen,
+  onFocus,
+  focused = false,
+  isNew = false,
   onTimerComplete,
   readOnly = false
 }) {
@@ -37,6 +41,11 @@ export default function CardItem({
   const dragRef = useRef(null)
 
   useEffect(() => () => clearTimeout(holdTimer.current), [])
+
+  function triggerFocus() {
+    if (onFocus) onFocus(card)
+    else onOpen?.(card)
+  }
 
   function handlePointerDown(e) {
     if (e.target.closest('.card-controls, .move-bar, button, a, input, iframe')) return
@@ -57,7 +66,7 @@ export default function CardItem({
         const now = Date.now()
         if (now - lastTapRef.current < DOUBLE_TAP_MS) {
           lastTapRef.current = 0
-          onOpen?.(card)
+          triggerFocus()
         } else {
           lastTapRef.current = now
         }
@@ -109,7 +118,7 @@ export default function CardItem({
       const now = Date.now()
       if (now - lastTapRef.current < DOUBLE_TAP_MS) {
         lastTapRef.current = 0
-        onOpen?.(card)
+        triggerFocus()
       } else {
         lastTapRef.current = now
       }
@@ -131,7 +140,7 @@ export default function CardItem({
     <div
       className={`card-item embed-item card-${card.type}${
         moveMode ? ' move-mode' : ''
-      }`}
+      }${focused ? ' focused' : ''}${isNew ? ' card-pop' : ''}`}
       style={{ left: card.x, top: card.y }}
       onPointerDown={handlePointerDown}
     >
@@ -202,6 +211,7 @@ function CardPreview({ card, onTimerComplete }) {
   if (card.type === 'link') {
     const youtubeId = getYoutubeId(card.content?.url)
     const domain = getDomain(card.content?.url)
+    const noteCount = card.content?.ytNotes?.length || 0
     return (
       <div className="preview-link">
         {youtubeId ? (
@@ -224,6 +234,11 @@ function CardPreview({ card, onTimerComplete }) {
           <p className="preview-empty">Sin link — doble tap</p>
         )}
         {card.title && <p className="preview-title">{card.title}</p>}
+        {youtubeId && noteCount > 0 && (
+          <p className="preview-title" style={{ color: 'var(--ink-soft)', fontWeight: 400 }}>
+            📝 {noteCount} {noteCount === 1 ? 'nota' : 'notas'}
+          </p>
+        )}
       </div>
     )
   }
