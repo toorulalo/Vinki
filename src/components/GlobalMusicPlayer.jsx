@@ -1,4 +1,4 @@
-import { useMusicPlayer } from './MusicPlayerContext';
+import { useMusicPlayer } from '../lib/MusicPlayerContext';
 
 export default function GlobalMusicPlayer() {
   const player = useMusicPlayer();
