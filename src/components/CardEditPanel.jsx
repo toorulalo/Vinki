@@ -152,7 +152,7 @@ function ReadOnlyView({ card, onUpdate }) {
   }
 
   if (card.type === 'spotify') {
-    return <SpotifyEmbed card={card} onUpdate={() => {}} />
+    return <SpotifyEmbed card={card} onUpdate={() => {}} readOnly />
   }
 
   return (

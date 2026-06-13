@@ -13,15 +13,17 @@ const TYPE_LABEL = {
 }
 
 const DOUBLE_TAP_MS = 320
-const HOLD_MS = 450
+const HOLD_MS = 420
 const MOVE_CANCEL = 8
 
 /**
  * Tarjeta dentro del lienzo-mapa. Coordenadas en "mundo"; el zoom/pan lo
  * aplica el contenedor. Interacciones:
- *  - doble tap  -> enfocar (centrar con zoom + resaltar). El lienzo muestra
+ *  - doble tap   -> enfocar (zoom centrado + outline). El lienzo muestra
  *    una barra "Abrir" para entrar al detalle.
- *  - mantener   -> entrar en "modo mover" (arrastrar y luego Aceptar)
+ *  - mantener    -> aparece un botón flotante "✋ Mover" sobre la tarjeta.
+ *    Al tocarlo se activa el modo mover GLOBAL (todas las tarjetas quedan
+ *    arrastrables) hasta que el usuario toque "Listo" en la barra inferior.
  */
 export default function CardItem({
   card,
@@ -33,24 +35,28 @@ export default function CardItem({
   focused = false,
   isNew = false,
   onTimerComplete,
-  readOnly = false
+  readOnly = false,
+  globalMoveMode = false,
+  onRequestMoveMode
 }) {
-  const [moveMode, setMoveMode] = useState(false)
+  const [showMoveHint, setShowMoveHint] = useState(false)
   const lastTapRef = useRef(0)
   const holdTimer = useRef(null)
-  const dragRef = useRef(null)
+  const movedRef = useRef(false)
 
   useEffect(() => () => clearTimeout(holdTimer.current), [])
 
-  function triggerFocus() {
-    if (onFocus) onFocus(card)
-    else onOpen?.(card)
+  function triggerFocus(el) {
+    const rect = el?.getBoundingClientRect?.()
+    if (onFocus) onFocus(card, rect)
+    else onOpen?.(card, rect)
   }
 
   function handlePointerDown(e) {
-    if (e.target.closest('.card-controls, .move-bar, button, a, input, iframe')) return
+    if (e.target.closest('.card-controls, .move-hint-btn, .global-move-bar, button, a, input, iframe')) return
     e.stopPropagation()
 
+    const cardEl = e.currentTarget
     const startX = e.clientX
     const startY = e.clientY
 
@@ -66,7 +72,7 @@ export default function CardItem({
         const now = Date.now()
         if (now - lastTapRef.current < DOUBLE_TAP_MS) {
           lastTapRef.current = 0
-          triggerFocus()
+          triggerFocus(cardEl)
         } else {
           lastTapRef.current = now
         }
@@ -75,32 +81,30 @@ export default function CardItem({
       return
     }
 
-    if (moveMode) {
+    if (globalMoveMode) {
       const origX = card.x
       const origY = card.y
-      dragRef.current = { startX, startY, origX, origY, lastX: origX, lastY: origY }
 
       function onMove(ev) {
         const dx = (ev.clientX - startX) / scale
         const dy = (ev.clientY - startY) / scale
-        const nx = dragRef.current.origX + dx
-        const ny = dragRef.current.origY + dy
-        dragRef.current.lastX = nx
-        dragRef.current.lastY = ny
-        onUpdateLocal(card.id, { x: nx, y: ny })
+        onUpdateLocal(card.id, { x: origX + dx, y: origY + dy })
       }
       function onUp() {
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
+        onUpdate(card.id, { x: card.x, y: card.y })
       }
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
       return
     }
 
-    // No estamos en modo mover: detectar hold (para entrar) y doble tap
+    // No estamos en modo mover: detectar "mantener presionado" (muestra el
+    // botón "Mover") y doble tap (enfocar)
+    movedRef.current = false
     holdTimer.current = setTimeout(() => {
-      setMoveMode(true)
+      if (!movedRef.current) setShowMoveHint(true)
     }, HOLD_MS)
 
     function onMoveDetect(ev) {
@@ -108,6 +112,7 @@ export default function CardItem({
         Math.abs(ev.clientX - startX) > MOVE_CANCEL ||
         Math.abs(ev.clientY - startY) > MOVE_CANCEL
       ) {
+        movedRef.current = true
         clearTimeout(holdTimer.current)
         cleanup()
       }
@@ -115,10 +120,11 @@ export default function CardItem({
     function onUpDetect() {
       clearTimeout(holdTimer.current)
       cleanup()
+      if (movedRef.current) return
       const now = Date.now()
       if (now - lastTapRef.current < DOUBLE_TAP_MS) {
         lastTapRef.current = 0
-        triggerFocus()
+        triggerFocus(cardEl)
       } else {
         lastTapRef.current = now
       }
@@ -131,15 +137,16 @@ export default function CardItem({
     window.addEventListener('pointerup', onUpDetect)
   }
 
-  function acceptMove() {
-    setMoveMode(false)
-    onUpdate(card.id, { x: card.x, y: card.y })
+  function handleRequestMove(e) {
+    e.stopPropagation()
+    setShowMoveHint(false)
+    onRequestMoveMode?.()
   }
 
   return (
     <div
       className={`card-item embed-item card-${card.type}${
-        moveMode ? ' move-mode' : ''
+        globalMoveMode ? ' move-mode' : ''
       }${focused ? ' focused' : ''}${isNew ? ' card-pop' : ''}`}
       style={{ left: card.x, top: card.y }}
       onPointerDown={handlePointerDown}
@@ -169,13 +176,10 @@ export default function CardItem({
         </div>
       )}
 
-      {moveMode && (
-        <div className="move-bar">
-          <span className="move-hint">Arrastrá y tocá Aceptar</span>
-          <button type="button" className="move-accept" onClick={acceptMove}>
-            Aceptar
-          </button>
-        </div>
+      {showMoveHint && !globalMoveMode && (
+        <button type="button" className="move-hint-btn" onClick={handleRequestMove}>
+          ✋ Mover
+        </button>
       )}
     </div>
   )

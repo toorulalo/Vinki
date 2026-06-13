@@ -16,10 +16,35 @@ const TYPE_LABEL = {
 }
 
 const COACH_KEY = 'vinki-coach-seen'
+const DOT_SIZE = 22
+const CARD_W = 190
+const CARD_H = 150
 
 function cardSummary(card) {
   if (card.type === 'note') return card.content?.text?.slice(0, 60) || 'Nota vacía'
   return card.title || card.content?.url?.slice(0, 60) || `${TYPE_LABEL[card.type]} vacío`
+}
+
+// Busca un punto cercano al deseado donde la nueva tarjeta no se encime
+// con ninguna otra (búsqueda en espiral alrededor del punto de partida).
+function findFreeSpot(cards, startX, startY) {
+  function overlaps(x, y) {
+    return cards.some((c) => Math.abs(c.x - x) < CARD_W && Math.abs(c.y - y) < CARD_H)
+  }
+  if (!overlaps(startX, startY)) return { x: startX, y: startY }
+  for (let r = 1; r <= 14; r++) {
+    const step = r * 40
+    const positions = [
+      [startX + step, startY], [startX - step, startY],
+      [startX, startY + step], [startX, startY - step],
+      [startX + step, startY + step], [startX - step, startY - step],
+      [startX + step, startY - step], [startX - step, startY + step]
+    ]
+    for (const [x, y] of positions) {
+      if (!overlaps(x, y)) return { x, y }
+    }
+  }
+  return { x: startX, y: startY }
 }
 
 export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, onSendToVrop, onCardOpened }) {
@@ -36,6 +61,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
   const [focusedId, setFocusedId] = useState(null)
   const [justAddedId, setJustAddedId] = useState(null)
   const [showCoach, setShowCoach] = useState(false)
+  const [moveMode, setMoveMode] = useState(false)
 
   // Coach-mark de uso único: aparece cuando ya hay al menos una tarjeta
   useEffect(() => {
@@ -55,28 +81,40 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
     setTimeout(() => setNotice(''), 3000)
   }
 
-  function openAndCenter(card) {
-    // Centrar la vista en la tarjeta (su centro aproximado) con zoom
-    vp.centerOn(card.x + 90, card.y + 70, 1.4)
+  // Centra la vista en el centro REAL (medido en pantalla) de la tarjeta,
+  // así el zoom queda perfectamente centrado sin importar su tamaño actual.
+  function centerOnCard(card, rect) {
+    if (rect && containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const screenCx = rect.left - containerRect.left + rect.width / 2
+      const screenCy = rect.top - containerRect.top + rect.height / 2
+      const world = vp.screenToWorld(screenCx, screenCy)
+      vp.centerOn(world.x, world.y, 1.4)
+    } else {
+      vp.centerOn(card.x + 90, card.y + 70, 1.4)
+    }
+  }
+
+  function openAndCenter(card, rect) {
+    centerOnCard(card, rect)
     setOpenCard(card)
     setFocusedId(null)
     onCardOpened?.(card)
   }
 
-  function handleFocus(card) {
+  function handleFocus(card, rect) {
     if (showCoach) dismissCoach()
-    vp.centerOn(card.x + 90, card.y + 70, 1.4)
+    centerOnCard(card, rect)
     setFocusedId(card.id)
   }
 
   async function handleAdd(type) {
-    // Crear la tarjeta cerca del centro visible actual
+    // Crear la tarjeta cerca del centro visible actual, sin encimarse con
+    // tarjetas existentes (búsqueda en espiral).
     const rect = containerRef.current.getBoundingClientRect()
     const center = vp.screenToWorld(rect.width / 2, rect.height / 2)
-    const { data, error } = await addCard(type, {
-      x: Math.round(center.x - 90),
-      y: Math.round(center.y - 60)
-    })
+    const spot = findFreeSpot(cards, Math.round(center.x - 90), Math.round(center.y - 60))
+    const { data, error } = await addCard(type, spot)
     if (error) {
       flash(error.message)
       return
@@ -134,7 +172,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
     <div className="board-wrapper">
       {notice && <div className="toast">{notice}</div>}
 
-      {!readOnly && cards.length > 0 && (
+      {!readOnly && cards.length > 0 && !moveMode && (
         <button
           type="button"
           className="btn-pill btn-pill-muted board-select-btn"
@@ -154,6 +192,10 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
         onPointerMove={vp.onPointerMove}
         onPointerUp={vp.onPointerUp}
         onPointerCancel={vp.onPointerUp}
+        style={{
+          backgroundPosition: `${view.x}px ${view.y}px`,
+          backgroundSize: `${DOT_SIZE * view.scale}px ${DOT_SIZE * view.scale}px`
+        }}
       >
         {cards.length === 0 && (
           <p className="canvas-empty canvas-empty-board">
@@ -180,16 +222,18 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
               isNew={card.id === justAddedId}
               onTimerComplete={handleTimerComplete}
               readOnly={readOnly}
+              globalMoveMode={moveMode}
+              onRequestMoveMode={() => setMoveMode(true)}
             />
           ))}
         </div>
       </div>
 
-      {!readOnly && (
+      {!readOnly && !moveMode && (
         <AddCardMenu onAdd={handleAdd} disabled={cards.length >= MAX_CARDS} />
       )}
 
-      {focusedCard && !openCard && (
+      {focusedCard && !openCard && !moveMode && (
         <div className="focus-bar">
           <span className="card-type-tag" style={{ paddingLeft: 10 }}>
             {TYPE_LABEL[focusedCard.type]}
@@ -204,11 +248,20 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
         </div>
       )}
 
-      {showCoach && (
+      {moveMode && (
+        <div className="global-move-bar">
+          <span>✋ Modo mover: arrastrá las tarjetas que quieras acomodar</span>
+          <button type="button" className="global-move-accept" onClick={() => setMoveMode(false)}>
+            Listo
+          </button>
+        </div>
+      )}
+
+      {showCoach && !moveMode && (
         <div className="coach-mark">
           <span>
-            💡 Doble tap para enfocar una tarjeta y tocar "Abrir". Mantené
-            presionado para moverla.
+            💡 Mantené presionada una tarjeta para mover. Doble tap la enfoca
+            y te deja abrirla.
           </span>
           <button type="button" className="coach-mark-close" onClick={dismissCoach}>
             Entendido
