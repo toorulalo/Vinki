@@ -1,4 +1,6 @@
 import { useSession } from './lib/useSession'
+import { MusicPlayerProvider } from './lib/MusicPlayerContext'
+import GlobalMusicPlayer from './components/GlobalMusicPlayer'
 import Login from './pages/Login'
 import Canvas from './pages/Canvas'
 
@@ -13,5 +15,10 @@ export default function App() {
     )
   }
 
-  return session ? <Canvas session={session} /> : <Login />
+  return (
+    <MusicPlayerProvider>
+      {session ? <Canvas session={session} /> : <Login />}
+      {session && <GlobalMusicPlayer />}
+    </MusicPlayerProvider>
+  )
 }
