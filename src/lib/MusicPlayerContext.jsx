@@ -156,5 +156,5 @@ export function useMusicPlayer() {
 }
 
 export function useMusicPlayer() {
-  return useContext(MusicPlayerContext)
+  return useContext(MusicPlayerContext);
 }
