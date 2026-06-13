@@ -10,6 +10,7 @@ export default function SettingsPanel({ profile, onNameChanged, onClose }) {
   const [animations, setAnimations] = useState(getAnimationsEnabled())
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  const [loggingOut, setLoggingOut] = useState(false)
 
   async function handleSave(e) {
     e.preventDefault()
@@ -35,6 +36,16 @@ export default function SettingsPanel({ profile, onNameChanged, onClose }) {
     setAnimations(next)
     localStorage.setItem('vinki-animations', next ? 'on' : 'off')
     document.body.classList.toggle('no-animations', !next)
+  }
+
+  async function handleLogout() {
+    if (loggingOut) return
+    if (!window.confirm('¿Cerrar sesión? Vas a volver a la pantalla de inicio.')) {
+      return
+    }
+    setLoggingOut(true)
+    await supabase.auth.signOut()
+    // onAuthStateChange (useSession) se encarga de mostrar el Login
   }
 
   return (
@@ -81,6 +92,24 @@ export default function SettingsPanel({ profile, onNameChanged, onClose }) {
           <p className="vrop-thread-hint" style={{ marginTop: 8 }}>
             Desactivalas si tu dispositivo va lento.
           </p>
+        </div>
+
+        <div className="vinki-section">
+          <h4>Cuenta</h4>
+          <p className="vrop-thread-hint" style={{ marginTop: 0 }}>
+            Vas a salir de tu cuenta en este dispositivo. Tus lienzos y
+            tarjetas quedan guardados, solo necesitás volver a entrar con tu
+            email y contraseña.
+          </p>
+          <button
+            type="button"
+            className="btn-pill btn-pill-muted btn-danger"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            style={{ width: '100%', justifyContent: 'center' }}
+          >
+            {loggingOut ? 'Saliendo...' : '🚪 Cerrar sesión'}
+          </button>
         </div>
       </div>
     </div>
