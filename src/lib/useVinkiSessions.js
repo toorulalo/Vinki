@@ -136,12 +136,58 @@ export function useVinkiSessions(profile) {
     return { data: session }
   }
 
+  /**
+   * Sale de una sesión. Si era un Proyecto y el usuario es el owner del
+   * canvas compartido (o es el último participante), borra el canvas
+   * compartido para que no quede huérfano e inaccesible.
+   *
+   * Esto resuelve el bug B3: el canvas del proyecto quedaba sin forma de
+   * borrarse porque solo aparece en el Dashboard del owner, pero no hay
+   * botón de delete accesible desde la SessionView.
+   */
   async function leaveSession(sessionId) {
+    // Buscar la sesión antes de salir para saber si era proyecto
+    const sessionData = sessions.find((s) => s.id === sessionId)
+
+    // Salir de la sesión (borrar la fila de session_participants)
     await supabase
       .from('session_participants')
       .delete()
       .eq('session_id', sessionId)
       .eq('user_id', profile.id)
+
+    // Si era un Proyecto con canvas compartido, ver si quedan participantes.
+    // Si no quedan, o si yo soy el owner del canvas, borrar el canvas y la sesión.
+    if (sessionData?.mode === 'proyecto' && sessionData?.shared_canvas_id) {
+      const { data: remaining } = await supabase
+        .from('session_participants')
+        .select('user_id')
+        .eq('session_id', sessionId)
+
+      // Verificar si soy el owner del canvas compartido
+      const { data: canvasData } = await supabase
+        .from('canvases')
+        .select('owner_id')
+        .eq('id', sessionData.shared_canvas_id)
+        .maybeSingle()
+
+      const iAmOwner = canvasData?.owner_id === profile.id
+      const noOneLeft = !remaining || remaining.length === 0
+
+      if (iAmOwner || noOneLeft) {
+        // Borrar el canvas compartido (cascade borra sus tarjetas vía FK)
+        await supabase
+          .from('canvases')
+          .delete()
+          .eq('id', sessionData.shared_canvas_id)
+
+        // Borrar la sesión también
+        await supabase
+          .from('sessions')
+          .delete()
+          .eq('id', sessionId)
+      }
+    }
 
     await reload()
   }
