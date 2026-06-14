@@ -333,7 +333,6 @@ input:focus-visible {
   background: var(--card-bg);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
-  overflow: hidden;
   touch-action: none;
   user-select: none;
   cursor: grab;
@@ -411,6 +410,8 @@ input:focus-visible {
 .card-preview {
   padding: 8px;
   min-height: 36px;
+  overflow: hidden;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 
 .preview-note {
