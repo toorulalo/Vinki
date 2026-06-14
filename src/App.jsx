@@ -1,24 +1,18 @@
 import { useSession } from './lib/useSession'
-import { MusicPlayerProvider } from './lib/MusicPlayerContext'
-import GlobalMusicPlayer from './components/GlobalMusicPlayer'
-import Login from './pages/Login'
+import Login from './components/Login'
 import Canvas from './pages/Canvas'
 
 export default function App() {
   const session = useSession()
 
+  // undefined = auth todavía cargando
   if (session === undefined) {
     return (
       <div className="page">
-        <p className="canvas-empty">Cargando...</p>
+        <p className="text-muted">Cargando...</p>
       </div>
     )
   }
 
-  return (
-    <MusicPlayerProvider>
-      {session ? <Canvas session={session} /> : <Login />}
-      {session && <GlobalMusicPlayer />}
-    </MusicPlayerProvider>
-  )
+  return session ? <Canvas session={session} /> : <Login />
 }
