@@ -3,20 +3,26 @@ import { supabase } from './supabaseClient'
 
 export const MAX_CANVASES = 5
 
-/**
- * Carga los lienzos del usuario. Si no tiene ninguno, el componente que use
- * este hook debe mostrar un diálogo para crear el primero (con nombre).
- */
 export function useCanvases(profile, hiddenCanvasIds = []) {
   const [canvases, setCanvases] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // profile===undefined significa que auth todavía está cargando.
+    // No cambiar el estado de loading hasta que profile se resuelva,
+    // de lo contrario Canvas.jsx pasa la guarda loadingCanvases===false
+    // con canvases=[] y muestra el Onboarding por un frame.
+    if (profile === undefined) return
+
     if (!profile) {
       setLoading(false)
       return
     }
+
     let active = true
+    // Marcar como loading ANTES del fetch para que Canvas.jsx muestre
+    // el spinner mientras llegan los datos reales.
+    setLoading(true)
 
     async function init() {
       const { data } = await supabase
@@ -57,8 +63,14 @@ export function useCanvases(profile, hiddenCanvasIds = []) {
   }
 
   async function removeCanvas(id) {
-    await supabase.from('canvases').delete().eq('id', id)
-    setCanvases((prev) => prev.filter((c) => c.id !== id))
+    // Intentar el delete y devolver el error para que el llamador lo maneje.
+    // Antes esto fallaba silenciosamente: la UI se actualizaba pero en la DB
+    // el lienzo permanecía (por RLS o por ser un canvas de proyecto).
+    const { error } = await supabase.from('canvases').delete().eq('id', id)
+    if (!error) {
+      setCanvases((prev) => prev.filter((c) => c.id !== id))
+    }
+    return { error }
   }
 
   async function renameCanvas(id, name) {
