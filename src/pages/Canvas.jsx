@@ -82,6 +82,10 @@ export default function Canvas({ session }) {
   const openCanvas = canvases.find((c) => c.id === openCanvasId)
   const openSession = vinki.sessions.find((s) => s.id === openSessionId)
 
+  // --- Guardas de carga ---
+  // Importante: profile===undefined significa "cargando", null significa
+  // "sin perfil" (error). Mostramos el spinner mientras cualquiera de los
+  // dos está cargando para evitar el flash de onboarding en usuarios existentes.
   if (profile === undefined) {
     return (
       <div className="page">
@@ -107,6 +111,11 @@ export default function Canvas({ session }) {
     )
   }
 
+  // Mientras los lienzos cargan, mostrar spinner.
+  // Esto evita el flash de onboarding en usuarios que ya tienen lienzos:
+  // entre el momento en que profile llega y el momento en que useCanvases
+  // termina su fetch, canvases=[] — sin este guard se mostraría el Onboarding
+  // brevemente antes de que lleguen los lienzos reales.
   if (loadingCanvases) {
     return (
       <div className="page">
