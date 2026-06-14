@@ -59,10 +59,15 @@ export default function Canvas({ session }) {
     return { error }
   }
 
-  function handleRemoveCanvas(id) {
+  async function handleRemoveCanvas(id) {
     if (!window.confirm('¿Eliminar este lienzo y todas sus tarjetas?')) return
     if (openCanvasId === id) setOpenCanvasId(null)
-    removeCanvas(id)
+    const { error } = await removeCanvas(id)
+    if (error) {
+      // Mostrar error al usuario — antes fallaba silenciosamente
+      setNotice('No se pudo eliminar el lienzo. Intentá de nuevo.')
+      setTimeout(() => setNotice(''), 4000)
+    }
   }
 
   async function handleLogout() {
@@ -83,9 +88,7 @@ export default function Canvas({ session }) {
   const openSession = vinki.sessions.find((s) => s.id === openSessionId)
 
   // --- Guardas de carga ---
-  // Importante: profile===undefined significa "cargando", null significa
-  // "sin perfil" (error). Mostramos el spinner mientras cualquiera de los
-  // dos está cargando para evitar el flash de onboarding en usuarios existentes.
+  // profile===undefined: auth todavía cargando.
   if (profile === undefined) {
     return (
       <div className="page">
@@ -111,12 +114,13 @@ export default function Canvas({ session }) {
     )
   }
 
-  // Mientras los lienzos cargan, mostrar spinner.
-  // Esto evita el flash de onboarding en usuarios que ya tienen lienzos:
-  // entre el momento en que profile llega y el momento en que useCanvases
-  // termina su fetch, canvases=[] — sin este guard se mostraría el Onboarding
-  // brevemente antes de que lleguen los lienzos reales.
-  if (loadingCanvases) {
+  // Esperar tanto canvases como sesiones VINKI antes de decidir si mostrar
+  // onboarding. Si solo esperamos loadingCanvases, podría ser false mientras
+  // vinki.loading todavía es true → projectCanvasIds=[] → canvases incluye
+  // todo → pero luego vinki carga y filtra → flash visual.
+  // Al esperar vinki.loading también eliminamos el caso donde el usuario
+  // solo tiene canvas de proyecto y parecería tener canvases.length===0.
+  if (loadingCanvases || vinki.loading) {
     return (
       <div className="page">
         <p className="canvas-empty">Cargando...</p>
