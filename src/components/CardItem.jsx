@@ -16,15 +16,6 @@ const DOUBLE_TAP_MS = 320
 const HOLD_MS = 420
 const MOVE_CANCEL = 8
 
-/**
- * Tarjeta dentro del lienzo-mapa. Coordenadas en "mundo"; el zoom/pan lo
- * aplica el contenedor. Interacciones:
- *  - doble tap   -> enfocar (zoom centrado + outline). El lienzo muestra
- *    una barra "Abrir" para entrar al detalle.
- *  - mantener    -> aparece un botón flotante "✋ Mover" sobre la tarjeta.
- *    Al tocarlo se activa el modo mover GLOBAL (todas las tarjetas quedan
- *    arrastrables) hasta que el usuario toque "Listo" en la barra inferior.
- */
 export default function CardItem({
   card,
   scale,
@@ -46,6 +37,11 @@ export default function CardItem({
 
   useEffect(() => () => clearTimeout(holdTimer.current), [])
 
+  // Limpiar el hint si el modo global cambia (ej: otro card activó el modo mover)
+  useEffect(() => {
+    if (globalMoveMode) setShowMoveHint(false)
+  }, [globalMoveMode])
+
   function triggerFocus(el) {
     const rect = el?.getBoundingClientRect?.()
     if (onFocus) onFocus(card, rect)
@@ -53,6 +49,8 @@ export default function CardItem({
   }
 
   function handlePointerDown(e) {
+    // Excluir elementos interactivos dentro de la tarjeta para que sus propios
+    // handlers funcionen sin interferencia (botones del timer, links, etc.)
     if (e.target.closest('.card-controls, .move-hint-btn, .global-move-bar, button, a, input, iframe')) return
     e.stopPropagation()
 
@@ -82,12 +80,8 @@ export default function CardItem({
     }
 
     if (globalMoveMode) {
-      // Guardar coordenadas originales en una ref mutable para evitar
-      // el closure stale: onUpdateLocal modifica el estado de CanvasBoard
-      // pero el prop 'card' en este closure queda congelado al valor inicial.
       const origX = card.x
       const origY = card.y
-      // Ref para rastrear la posición actual del drag sin depender de props stale
       const currentPos = { x: origX, y: origY }
 
       function onMove(ev) {
@@ -100,8 +94,6 @@ export default function CardItem({
       function onUp() {
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
-        // Usamos currentPos (actualizado en el closure de onMove) en lugar
-        // de card.x/card.y que estarían desactualizados por ser el prop inicial.
         onUpdate(card.id, { x: currentPos.x, y: currentPos.y })
       }
       window.addEventListener('pointermove', onMove)
@@ -109,8 +101,8 @@ export default function CardItem({
       return
     }
 
-    // No estamos en modo mover: detectar "mantener presionado" (muestra el
-    // botón "Mover") y doble tap (enfocar)
+    // Modo normal: detectar mantener presionado (muestra el hint "Mover")
+    // y doble tap (enfocar tarjeta).
     movedRef.current = false
     holdTimer.current = setTimeout(() => {
       if (!movedRef.current) setShowMoveHint(true)
@@ -123,12 +115,17 @@ export default function CardItem({
       ) {
         movedRef.current = true
         clearTimeout(holdTimer.current)
+        // Si el usuario deslizó, ocultar el hint (no quiso mover con el botón)
+        setShowMoveHint(false)
         cleanup()
       }
     }
     function onUpDetect() {
       clearTimeout(holdTimer.current)
       cleanup()
+      // Al levantar el dedo siempre ocultamos el hint: si el usuario quería
+      // mover habría tocado el botón ✋, no levantado el dedo.
+      setShowMoveHint(false)
       if (movedRef.current) return
       const now = Date.now()
       if (now - lastTapRef.current < DOUBLE_TAP_MS) {
