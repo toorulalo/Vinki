@@ -82,18 +82,27 @@ export default function CardItem({
     }
 
     if (globalMoveMode) {
+      // Guardar coordenadas originales en una ref mutable para evitar
+      // el closure stale: onUpdateLocal modifica el estado de CanvasBoard
+      // pero el prop 'card' en este closure queda congelado al valor inicial.
       const origX = card.x
       const origY = card.y
+      // Ref para rastrear la posición actual del drag sin depender de props stale
+      const currentPos = { x: origX, y: origY }
 
       function onMove(ev) {
         const dx = (ev.clientX - startX) / scale
         const dy = (ev.clientY - startY) / scale
-        onUpdateLocal(card.id, { x: origX + dx, y: origY + dy })
+        currentPos.x = origX + dx
+        currentPos.y = origY + dy
+        onUpdateLocal(card.id, { x: currentPos.x, y: currentPos.y })
       }
       function onUp() {
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
-        onUpdate(card.id, { x: card.x, y: card.y })
+        // Usamos currentPos (actualizado en el closure de onMove) en lugar
+        // de card.x/card.y que estarían desactualizados por ser el prop inicial.
+        onUpdate(card.id, { x: currentPos.x, y: currentPos.y })
       }
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
