@@ -131,42 +131,60 @@ export function useVinkiSessions(profile) {
   /**
    * Sale de una sesión.
    *
-   * Para sesiones normales: borra solo la fila de session_participants.
-   *
-   * Para sesiones de Proyecto: usa la función RPC leave_proyecto_session
-   * (security-definer en Supabase) que limpia el canvas compartido y la
-   * sesión si no quedan participantes. Esto evita el bug donde la RLS de
-   * 'canvases' bloqueaba el delete cuando el usuario NO era el owner del
-   * canvas compartido.
-   *
-   * Si la función RPC no existe todavía (la SQL no se corrió), cae al
-   * comportamiento anterior (solo borra su fila de participante) sin romper.
+   * Intenta primero con la función RPC `leave_proyecto_session` (que limpia
+   * todo con permisos elevados). Si esa función no existe en Supabase, cae
+   * al método manual que:
+   *  1. Elimina la fila de session_participants del usuario.
+   *  2. Si no quedan más participantes, elimina la sesión y el canvas
+   *     compartido (solo si el usuario actual es el owner del canvas).
    */
   async function leaveSession(sessionId) {
     const sessionData = sessions.find((s) => s.id === sessionId)
     const isProyecto = sessionData?.mode === 'proyecto'
 
     if (isProyecto) {
-      // Usar la función security-definer para que cualquier participante
-      // pueda limpiar el proyecto al salir, sin depender de ser el owner.
       const { error: rpcError } = await supabase.rpc('leave_proyecto_session', {
         p_session_id: sessionId
       })
 
-      if (rpcError) {
-        // Si la función RPC no existe (SQL no corrida aún), caer al método directo
-        if (rpcError.code === 'PGRST202' || rpcError.message?.includes('function') || rpcError.message?.includes('does not exist')) {
-          // Fallback: solo borrar la fila de participante
-          await supabase
-            .from('session_participants')
-            .delete()
-            .eq('session_id', sessionId)
-            .eq('user_id', profile.id)
+      const rpcMissing =
+        rpcError &&
+        (rpcError.code === 'PGRST202' ||
+          rpcError.message?.includes('function') ||
+          rpcError.message?.includes('does not exist'))
+
+      if (rpcMissing) {
+        // --- Fallback manual ---
+        // 1. Salir de la sesión
+        await supabase
+          .from('session_participants')
+          .delete()
+          .eq('session_id', sessionId)
+          .eq('user_id', profile.id)
+
+        // 2. Verificar si quedaron participantes
+        const { data: remaining } = await supabase
+          .from('session_participants')
+          .select('user_id')
+          .eq('session_id', sessionId)
+
+        if (!remaining || remaining.length === 0) {
+          // Último en salir: limpiar sesión y canvas compartido
+          await supabase.from('sessions').delete().eq('id', sessionId)
+
+          if (sessionData?.shared_canvas_id) {
+            // Solo se puede borrar si somos el owner (RLS lo filtra).
+            // Si falla, el canvas queda huérfano pero ya no bloquea el flujo.
+            await supabase
+              .from('canvases')
+              .delete()
+              .eq('id', sessionData.shared_canvas_id)
+          }
         }
-        // Si fue otro error, igual continuamos para no dejar al usuario atrapado
       }
+      // Si rpcError es otro tipo de error, igual continuamos para no dejar
+      // al usuario atrapado en la sesión.
     } else {
-      // Sesión normal: solo salir
       await supabase
         .from('session_participants')
         .delete()
