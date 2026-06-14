@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { getYoutubeId, getDomain } from '../lib/linkPreview'
 import TimerEmbed from './TimerEmbed'
 import { SpotifyTower } from './SpotifyEmbed'
@@ -14,7 +14,7 @@ const TYPE_LABEL = {
 
 const DOUBLE_TAP_MS = 320
 const HOLD_MS = 420
-const MOVE_CANCEL = 8
+const MOVE_THRESHOLD = 8
 
 export default function CardItem({
   card,
@@ -26,21 +26,12 @@ export default function CardItem({
   focused = false,
   isNew = false,
   onTimerComplete,
-  readOnly = false,
-  globalMoveMode = false,
-  onRequestMoveMode
+  readOnly = false
 }) {
-  const [showMoveHint, setShowMoveHint] = useState(false)
   const lastTapRef = useRef(0)
   const holdTimer = useRef(null)
-  const movedRef = useRef(false)
 
   useEffect(() => () => clearTimeout(holdTimer.current), [])
-
-  // Limpiar el hint si el modo global cambia (ej: otro card activó el modo mover)
-  useEffect(() => {
-    if (globalMoveMode) setShowMoveHint(false)
-  }, [globalMoveMode])
 
   function triggerFocus(el) {
     const rect = el?.getBoundingClientRect?.()
@@ -49,111 +40,72 @@ export default function CardItem({
   }
 
   function handlePointerDown(e) {
-    // Excluir elementos interactivos dentro de la tarjeta para que sus propios
-    // handlers funcionen sin interferencia (botones del timer, links, etc.)
-    if (e.target.closest('.card-controls, .move-hint-btn, .global-move-bar, button, a, input, iframe')) return
+    if (e.target.closest('.card-controls, button, a, input, iframe')) return
     e.stopPropagation()
 
     const cardEl = e.currentTarget
     const startX = e.clientX
     const startY = e.clientY
+    const origX = card.x
+    const origY = card.y
+    const currentPos = { x: origX, y: origY }
+    let isDragging = false
+    let held = false
 
     if (readOnly) {
       function onUpReadOnly(ev) {
         window.removeEventListener('pointerup', onUpReadOnly)
-        if (
-          Math.abs(ev.clientX - startX) > MOVE_CANCEL ||
-          Math.abs(ev.clientY - startY) > MOVE_CANCEL
-        ) {
-          return
-        }
+        if (Math.abs(ev.clientX - startX) > MOVE_THRESHOLD || Math.abs(ev.clientY - startY) > MOVE_THRESHOLD) return
         const now = Date.now()
-        if (now - lastTapRef.current < DOUBLE_TAP_MS) {
-          lastTapRef.current = 0
-          triggerFocus(cardEl)
-        } else {
-          lastTapRef.current = now
-        }
+        if (now - lastTapRef.current < DOUBLE_TAP_MS) { lastTapRef.current = 0; triggerFocus(cardEl) }
+        else { lastTapRef.current = now }
       }
       window.addEventListener('pointerup', onUpReadOnly)
       return
     }
 
-    if (globalMoveMode) {
-      const origX = card.x
-      const origY = card.y
-      const currentPos = { x: origX, y: origY }
-
-      function onMove(ev) {
-        const dx = (ev.clientX - startX) / scale
-        const dy = (ev.clientY - startY) / scale
-        currentPos.x = origX + dx
-        currentPos.y = origY + dy
-        onUpdateLocal(card.id, { x: currentPos.x, y: currentPos.y })
-      }
-      function onUp() {
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-        onUpdate(card.id, { x: currentPos.x, y: currentPos.y })
-      }
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
-      return
-    }
-
-    // Modo normal: detectar mantener presionado (muestra el hint "Mover")
-    // y doble tap (enfocar tarjeta).
-    movedRef.current = false
     holdTimer.current = setTimeout(() => {
-      if (!movedRef.current) setShowMoveHint(true)
+      held = true
+      cardEl.classList.add('card-held')
     }, HOLD_MS)
 
-    function onMoveDetect(ev) {
-      if (
-        Math.abs(ev.clientX - startX) > MOVE_CANCEL ||
-        Math.abs(ev.clientY - startY) > MOVE_CANCEL
-      ) {
-        movedRef.current = true
+    function onMove(ev) {
+      const dx = ev.clientX - startX
+      const dy = ev.clientY - startY
+      if (held) {
+        isDragging = true
+        currentPos.x = origX + dx / scale
+        currentPos.y = origY + dy / scale
+        onUpdateLocal(card.id, { x: currentPos.x, y: currentPos.y })
+      } else if (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD) {
         clearTimeout(holdTimer.current)
-        // Si el usuario deslizó, ocultar el hint (no quiso mover con el botón)
-        setShowMoveHint(false)
         cleanup()
       }
     }
-    function onUpDetect() {
-      clearTimeout(holdTimer.current)
-      cleanup()
-      // Al levantar el dedo siempre ocultamos el hint: si el usuario quería
-      // mover habría tocado el botón ✋, no levantado el dedo.
-      setShowMoveHint(false)
-      if (movedRef.current) return
-      const now = Date.now()
-      if (now - lastTapRef.current < DOUBLE_TAP_MS) {
-        lastTapRef.current = 0
-        triggerFocus(cardEl)
-      } else {
-        lastTapRef.current = now
-      }
-    }
-    function cleanup() {
-      window.removeEventListener('pointermove', onMoveDetect)
-      window.removeEventListener('pointerup', onUpDetect)
-    }
-    window.addEventListener('pointermove', onMoveDetect)
-    window.addEventListener('pointerup', onUpDetect)
-  }
 
-  function handleRequestMove(e) {
-    e.stopPropagation()
-    setShowMoveHint(false)
-    onRequestMoveMode?.()
+    function onUp(ev) {
+      clearTimeout(holdTimer.current)
+      cardEl.classList.remove('card-held')
+      cleanup()
+      if (isDragging) { onUpdate(card.id, { x: currentPos.x, y: currentPos.y }); return }
+      const moved = Math.abs(ev.clientX - startX) > MOVE_THRESHOLD || Math.abs(ev.clientY - startY) > MOVE_THRESHOLD
+      if (moved) return
+      const now = Date.now()
+      if (now - lastTapRef.current < DOUBLE_TAP_MS) { lastTapRef.current = 0; triggerFocus(cardEl) }
+      else { lastTapRef.current = now }
+    }
+
+    function cleanup() {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
   }
 
   return (
     <div
-      className={`card-item embed-item card-${card.type}${
-        globalMoveMode ? ' move-mode' : ''
-      }${focused ? ' focused' : ''}${isNew ? ' card-pop' : ''}`}
+      className={`card-item embed-item card-${card.type}${focused ? ' focused' : ''}${isNew ? ' card-pop' : ''}`}
       style={{ left: card.x, top: card.y }}
       onPointerDown={handlePointerDown}
     >
@@ -161,31 +113,18 @@ export default function CardItem({
         <span className="card-type-tag">{TYPE_LABEL[card.type]}</span>
         {!readOnly && (
           <div className="card-controls">
-            <button
-              type="button"
-              className="card-control-btn"
-              onClick={(e) => {
-                e.stopPropagation()
-                onUpdate(card.id, { minimized: !card.minimized })
-              }}
-              aria-label={card.minimized ? 'Expandir' : 'Minimizar'}
-            >
+            <button type="button" className="card-control-btn"
+              onClick={(e) => { e.stopPropagation(); onUpdate(card.id, { minimized: !card.minimized }) }}
+              aria-label={card.minimized ? 'Expandir' : 'Minimizar'}>
               {card.minimized ? '▢' : '—'}
             </button>
           </div>
         )}
       </div>
-
       {!card.minimized && (
         <div className="card-preview">
           <CardPreview card={card} onTimerComplete={onTimerComplete} />
         </div>
-      )}
-
-      {showMoveHint && !globalMoveMode && (
-        <button type="button" className="move-hint-btn" onClick={handleRequestMove}>
-          ✋ Mover
-        </button>
       )}
     </div>
   )
@@ -194,30 +133,18 @@ export default function CardItem({
 function CardPreview({ card, onTimerComplete }) {
   if (card.type === 'note') {
     const text = card.content?.text?.trim()
-    return (
-      <p className="preview-note">{text || 'Nota vacía — doble tap'}</p>
-    )
+    return <p className="preview-note">{text || 'Nota vacía — doble tap'}</p>
   }
-
-  if (card.type === 'timer') {
-    return <TimerEmbed card={card} onComplete={onTimerComplete} />
-  }
-
-  if (card.type === 'spotify') {
-    return <SpotifyTower card={card} />
-  }
-
+  if (card.type === 'timer') return <TimerEmbed card={card} onComplete={onTimerComplete} />
+  if (card.type === 'spotify') return <SpotifyTower card={card} />
   if (card.type === 'pdf') {
     return (
       <div className="preview-pdf">
         <span className="preview-pdf-icon">📄</span>
-        <span className="preview-pdf-name">
-          {card.title || card.content?.filename || 'Sin archivo — doble tap'}
-        </span>
+        <span className="preview-pdf-name">{card.title || card.content?.filename || 'Sin archivo — doble tap'}</span>
       </div>
     )
   }
-
   if (card.type === 'link') {
     const youtubeId = getYoutubeId(card.content?.url)
     const domain = getDomain(card.content?.url)
@@ -225,47 +152,25 @@ function CardPreview({ card, onTimerComplete }) {
     return (
       <div className="preview-link">
         {youtubeId ? (
-          <img
-            className="preview-thumb"
-            src={`https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`}
-            alt=""
-            loading="lazy"
-          />
+          <img className="preview-thumb" src={`https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`} alt="" loading="lazy" />
         ) : card.content?.url ? (
           <div className="preview-chip">
-            <img
-              className="card-link-favicon"
-              src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
-              alt=""
-            />
+            <img className="card-link-favicon" src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`} alt="" />
             <span className="card-link-domain">{domain}</span>
           </div>
-        ) : (
-          <p className="preview-empty">Sin link — doble tap</p>
-        )}
+        ) : <p className="preview-empty">Sin link — doble tap</p>}
         {card.title && <p className="preview-title">{card.title}</p>}
         {youtubeId && noteCount > 0 && (
-          <p className="preview-title" style={{ color: 'var(--ink-soft)', fontWeight: 400 }}>
-            📝 {noteCount} {noteCount === 1 ? 'nota' : 'notas'}
-          </p>
+          <p className="preview-title" style={{ color: 'var(--ink-soft)', fontWeight: 400 }}>📝 {noteCount} {noteCount === 1 ? 'nota' : 'notas'}</p>
         )}
       </div>
     )
   }
-
   if (card.type === 'image') {
     return card.content?.url ? (
-      <img
-        className="preview-thumb"
-        src={card.content.url}
-        alt=""
-        loading="lazy"
-        style={card.content?.size ? { height: card.content.size } : undefined}
-      />
-    ) : (
-      <p className="preview-empty">Sin imagen — doble tap</p>
-    )
+      <img className="preview-thumb" src={card.content.url} alt="" loading="lazy"
+        style={card.content?.size ? { height: card.content.size } : undefined} />
+    ) : <p className="preview-empty">Sin imagen — doble tap</p>
   }
-
   return null
 }

@@ -7,12 +7,8 @@ import CardEditPanel from './CardEditPanel'
 import AddCardMenu from './AddCardMenu'
 
 const TYPE_LABEL = {
-  note: 'Nota',
-  link: 'Link',
-  image: 'Imagen',
-  pdf: 'PDF',
-  timer: 'Temporizador',
-  spotify: 'Música'
+  note: 'Nota', link: 'Link', image: 'Imagen',
+  pdf: 'PDF', timer: 'Temporizador', spotify: 'Música'
 }
 
 const COACH_KEY = 'vinki-coach-seen'
@@ -25,8 +21,6 @@ function cardSummary(card) {
   return card.title || card.content?.url?.slice(0, 60) || `${TYPE_LABEL[card.type]} vacío`
 }
 
-// Busca un punto cercano al deseado donde la nueva tarjeta no se encime
-// con ninguna otra (búsqueda en espiral alrededor del punto de partida).
 function findFreeSpot(cards, startX, startY) {
   function overlaps(x, y) {
     return cards.some((c) => Math.abs(c.x - x) < CARD_W && Math.abs(c.y - y) < CARD_H)
@@ -48,8 +42,7 @@ function findFreeSpot(cards, startX, startY) {
 }
 
 export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, onSendToVrop, onCardOpened }) {
-  const { cards, addCard, updateCard, updateCardLocal, removeCard } =
-    useCards(canvasId)
+  const { cards, addCard, updateCard, updateCardLocal, removeCard } = useCards(canvasId)
   const containerRef = useRef(null)
   const vp = useViewport(containerRef)
   useViewportWheelBinding(containerRef, vp.onWheel)
@@ -61,13 +54,9 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
   const [focusedId, setFocusedId] = useState(null)
   const [justAddedId, setJustAddedId] = useState(null)
   const [showCoach, setShowCoach] = useState(false)
-  const [moveMode, setMoveMode] = useState(false)
 
-  // Coach-mark de uso único: aparece cuando ya hay al menos una tarjeta
   useEffect(() => {
-    if (readOnly) return
-    if (cards.length === 0) return
-    if (localStorage.getItem(COACH_KEY)) return
+    if (readOnly || cards.length === 0 || localStorage.getItem(COACH_KEY)) return
     setShowCoach(true)
   }, [readOnly, cards.length])
 
@@ -81,8 +70,6 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
     setTimeout(() => setNotice(''), 3000)
   }
 
-  // Centra la vista en el centro REAL (medido en pantalla) de la tarjeta,
-  // así el zoom queda perfectamente centrado sin importar su tamaño actual.
   function centerOnCard(card, rect) {
     if (rect && containerRef.current) {
       const containerRect = containerRef.current.getBoundingClientRect()
@@ -109,16 +96,11 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
   }
 
   async function handleAdd(type) {
-    // Crear la tarjeta cerca del centro visible actual, sin encimarse con
-    // tarjetas existentes (búsqueda en espiral).
     const rect = containerRef.current.getBoundingClientRect()
     const center = vp.screenToWorld(rect.width / 2, rect.height / 2)
     const spot = findFreeSpot(cards, Math.round(center.x - 90), Math.round(center.y - 60))
     const { data, error } = await addCard(type, spot)
-    if (error) {
-      flash(error.message)
-      return
-    }
+    if (error) { flash(error.message); return }
     if (data) {
       setJustAddedId(data.id)
       setTimeout(() => setJustAddedId((id) => (id === data.id ? null : id)), 500)
@@ -127,9 +109,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
   }
 
   function toggleSelected(id) {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    )
+    setSelected((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
   }
 
   async function deleteSelected() {
@@ -148,10 +128,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
     if (rect) {
       const cardScreenX = view.x + (card.x + 90) * view.scale
       const cardScreenY = view.y + (card.y + 70) * view.scale
-      const dist = Math.hypot(
-        cardScreenX - rect.width / 2,
-        cardScreenY - rect.height / 2
-      )
+      const dist = Math.hypot(cardScreenX - rect.width / 2, cardScreenY - rect.height / 2)
       playChime(proximityVolume(dist))
     } else {
       playChime(1)
@@ -159,10 +136,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
   }
 
   function handleContainerPointerDown(e) {
-    // Tocar el fondo (no una tarjeta) quita el foco actual
-    if (focusedId && !e.target.closest('.card-item')) {
-      setFocusedId(null)
-    }
+    if (focusedId && !e.target.closest('.card-item')) setFocusedId(null)
     vp.onPointerDown(e)
   }
 
@@ -172,15 +146,9 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
     <div className="board-wrapper">
       {notice && <div className="toast">{notice}</div>}
 
-      {!readOnly && cards.length > 0 && !moveMode && (
-        <button
-          type="button"
-          className="btn-pill btn-pill-muted board-select-btn"
-          onClick={() => {
-            setSelectMode(true)
-            setSelected([])
-          }}
-        >
+      {!readOnly && cards.length > 0 && (
+        <button type="button" className="btn-pill btn-pill-muted board-select-btn"
+          onClick={() => { setSelectMode(true); setSelected([]) }}>
           Seleccionar
         </button>
       )}
@@ -198,16 +166,12 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
         }}
       >
         {cards.length === 0 && (
-          <p className="canvas-empty canvas-empty-board">
-            {emptyLabel || 'Este lienzo está vacío.'}
-          </p>
+          <p className="canvas-empty canvas-empty-board">{emptyLabel || 'Este lienzo está vacío.'}</p>
         )}
 
         <div
           className={`canvas-world${vp.animating ? ' world-animate' : ''}`}
-          style={{
-            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`
-          }}
+          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
         >
           {cards.map((card) => (
             <CardItem
@@ -222,50 +186,28 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
               isNew={card.id === justAddedId}
               onTimerComplete={handleTimerComplete}
               readOnly={readOnly}
-              globalMoveMode={moveMode}
-              onRequestMoveMode={() => setMoveMode(true)}
             />
           ))}
         </div>
       </div>
 
-      {!readOnly && !moveMode && (
-        <AddCardMenu onAdd={handleAdd} disabled={cards.length >= MAX_CARDS} />
-      )}
+      {!readOnly && <AddCardMenu onAdd={handleAdd} disabled={cards.length >= MAX_CARDS} />}
 
-      {focusedCard && !openCard && !moveMode && (
+      {focusedCard && !openCard && (
         <div className="focus-bar">
           <span className="card-type-tag" style={{ paddingLeft: 10 }}>
             {TYPE_LABEL[focusedCard.type]}
           </span>
-          <button
-            type="button"
-            className="btn-primary focus-open-btn"
-            onClick={() => openAndCenter(focusedCard)}
-          >
+          <button type="button" className="btn-primary focus-open-btn" onClick={() => openAndCenter(focusedCard)}>
             Abrir
           </button>
         </div>
       )}
 
-      {moveMode && (
-        <div className="global-move-bar">
-          <span>✋ Modo mover: arrastrá las tarjetas que quieras acomodar</span>
-          <button type="button" className="global-move-accept" onClick={() => setMoveMode(false)}>
-            Listo
-          </button>
-        </div>
-      )}
-
-      {showCoach && !moveMode && (
+      {showCoach && (
         <div className="coach-mark">
-          <span>
-            💡 Mantené presionada una tarjeta para mover. Doble tap la enfoca
-            y te deja abrirla.
-          </span>
-          <button type="button" className="coach-mark-close" onClick={dismissCoach}>
-            Entendido
-          </button>
+          <span>💡 Mantené presionada una tarjeta para moverla. Doble tap para enfocar.</span>
+          <button type="button" className="coach-mark-close" onClick={dismissCoach}>Entendido</button>
         </div>
       )}
 
@@ -273,14 +215,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
         <CardEditPanel
           card={cards.find((c) => c.id === openCard.id) || openCard}
           onUpdate={readOnly ? undefined : updateCard}
-          onRemove={
-            readOnly
-              ? undefined
-              : (id) => {
-                  removeCard(id)
-                  setOpenCard(null)
-                }
-          }
+          onRemove={readOnly ? undefined : (id) => { removeCard(id); setOpenCard(null) }}
           onSendToVrop={readOnly ? undefined : onSendToVrop}
           onClose={() => setOpenCard(null)}
           readOnly={readOnly}
@@ -292,34 +227,16 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="font-display">Seleccionar elementos</h3>
-              <button
-                type="button"
-                className="card-control-btn"
-                onClick={() => setSelectMode(false)}
-                aria-label="Cerrar"
-              >
-                ×
-              </button>
+              <button type="button" className="card-control-btn" onClick={() => setSelectMode(false)} aria-label="Cerrar">×</button>
             </div>
-
             {cards.map((card) => (
               <label className="select-row" key={card.id}>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(card.id)}
-                  onChange={() => toggleSelected(card.id)}
-                />
+                <input type="checkbox" checked={selected.includes(card.id)} onChange={() => toggleSelected(card.id)} />
                 <span className="session-mode-badge">{TYPE_LABEL[card.type]}</span>
                 <span className="select-row-text">{cardSummary(card)}</span>
               </label>
             ))}
-
-            <button
-              type="button"
-              className="btn-primary btn-delete"
-              onClick={deleteSelected}
-              disabled={selected.length === 0}
-            >
+            <button type="button" className="btn-primary btn-delete" onClick={deleteSelected} disabled={selected.length === 0}>
               Eliminar seleccionados ({selected.length})
             </button>
           </div>
