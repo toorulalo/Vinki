@@ -6,7 +6,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' en vez de 'autoUpdate': el SW nuevo se instala pero no
+      // reemplaza el activo hasta que el usuario cierra TODAS las pestañas
+      // de la app o recarga. Con 'autoUpdate' el SW viejo puede servir el
+      // bundle anterior por un segundo antes de que el nuevo tome control,
+      // causando el flash de onboarding que se veía al recargar.
+      registerType: 'prompt',
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'VINKI',
