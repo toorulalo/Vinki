@@ -1,29 +1,46 @@
 import { useState, useRef, useEffect } from 'react'
 import { useCards, MAX_CARDS } from '../lib/useCards'
+import { useDecks } from '../lib/useDecks'
 import { useViewport, useViewportWheelBinding } from '../lib/useViewport'
 import CardItem from './CardItem'
 import CardEditPanel from './CardEditPanel'
 import AddCardMenu from './AddCardMenu'
 import DeleteMode from './DeleteMode'
 
-const COACH_KEY = 'vinki-v4-coach'
+const COACH_KEY = 'vinki-v5-coach'
 const DOT_SIZE  = 22
-const CARD_W    = 190
-const CARD_H    = 150
+const CARD_W    = 200
+const CARD_H    = 160
 
 function findFreeSpot(cards, sx, sy) {
-  function overlaps(x, y) { return cards.some((c) => Math.abs(c.x - x) < CARD_W && Math.abs(c.y - y) < CARD_H) }
+  function overlaps(x, y) {
+    return cards.some((c) => Math.abs(c.x - x) < CARD_W && Math.abs(c.y - y) < CARD_H)
+  }
   if (!overlaps(sx, sy)) return { x: sx, y: sy }
   for (let r = 1; r <= 14; r++) {
-    const s = r * 44
-    for (const [x, y] of [[sx+s,sy],[sx-s,sy],[sx,sy+s],[sx,sy-s],[sx+s,sy+s],[sx-s,sy-s],[sx+s,sy-s],[sx-s,sy+s]])
+    const s = r * 48
+    for (const [x, y] of [
+      [sx+s, sy], [sx-s, sy], [sx, sy+s], [sx, sy-s],
+      [sx+s, sy+s], [sx-s, sy-s], [sx+s, sy-s], [sx-s, sy+s],
+    ]) {
       if (!overlaps(x, y)) return { x, y }
+    }
   }
   return { x: sx, y: sy }
 }
 
-export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, onSendToVrop, onCardOpened, history }) {
+export default function CanvasBoard({
+  canvasId,
+  emptyLabel,
+  readOnly = false,
+  onSendToVrop,
+  onCardOpened,
+  onOpenDeck,
+  history,
+  profile,
+}) {
   const { cards, addCard, updateCard, updateCardLocal, removeCard, removeCards } = useCards(canvasId)
+  const decks = useDecks(profile)
   const containerRef = useRef(null)
   const vp = useViewport(containerRef)
   useViewportWheelBinding(containerRef, vp.onWheel)
@@ -44,7 +61,7 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
 
   function centerOnCard(card, rect) {
     if (rect && containerRef.current) {
-      const cr = containerRef.current.getBoundingClientRect()
+      const cr    = containerRef.current.getBoundingClientRect()
       const world = vp.screenToWorld(rect.left - cr.left + rect.width / 2, rect.top - cr.top + rect.height / 2)
       vp.centerOn(world.x, world.y, 1.4)
     } else {
@@ -66,22 +83,35 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
   }
 
   async function handleAdd(type) {
-    const rect = containerRef.current.getBoundingClientRect()
+    const rect   = containerRef.current.getBoundingClientRect()
     const center = vp.screenToWorld(rect.width / 2, rect.height / 2)
-    const spot = findFreeSpot(cards, Math.round(center.x - 90), Math.round(center.y - 60))
+    const spot   = findFreeSpot(cards, Math.round(center.x - 90), Math.round(center.y - 60))
     const { data, error } = await addCard(type, spot)
     if (error || !data) return
+
+    // Si es mazo, crear la fila en decks
+    if (type === 'deck' && profile) {
+      const { data: deck } = await decks.createDeck(data.id, profile.id)
+      if (deck) {
+        await updateCard(data.id, { title: deck.title, content: { deckId: deck.id } })
+      }
+    }
+
     setJustAddedId(data.id)
     setTimeout(() => setJustAddedId((id) => id === data.id ? null : id), 500)
 
-    // historial: deshacer = borrar la tarjeta creada
     history?.push({
       label: `Crear ${type}`,
       do:   async () => {},
       undo: async () => removeCard(data.id),
     })
 
-    openAndCenter(data)
+    // Para decks, abrir directamente el panel de deck en vez del edit panel
+    if (type === 'deck') {
+      openAndCenter(data)
+    } else {
+      openAndCenter(data)
+    }
   }
 
   async function handleMove(id, newX, newY) {
@@ -137,20 +167,25 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
       <div
         className="canvas-map"
         ref={containerRef}
-        onPointerDown={(e) => { if (focusedId && !e.target.closest('.card-item')) setFocusedId(null); vp.onPointerDown(e) }}
+        onPointerDown={(e) => {
+          if (focusedId && !e.target.closest('.card-item')) setFocusedId(null)
+          vp.onPointerDown(e)
+        }}
         onPointerMove={vp.onPointerMove}
         onPointerUp={vp.onPointerUp}
         onPointerCancel={vp.onPointerUp}
         style={{
           backgroundPosition: `${view.x}px ${view.y}px`,
-          backgroundSize: `${DOT_SIZE * view.scale}px ${DOT_SIZE * view.scale}px`
+          backgroundSize: `${DOT_SIZE * view.scale}px ${DOT_SIZE * view.scale}px`,
         }}
       >
         {cards.length === 0 && (
           <p className="canvas-empty-hint">{emptyLabel || 'El lienzo está vacío.'}</p>
         )}
-        <div className={`canvas-world${vp.animating ? ' world-animate' : ''}`}
-          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
+        <div
+          className={`canvas-world${vp.animating ? ' world-animate' : ''}`}
+          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
+        >
           {cards.map((card) => (
             <CardItem
               key={card.id}
@@ -171,7 +206,9 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
         </div>
       </div>
 
-      {!readOnly && !deleteMode && <AddCardMenu onAdd={handleAdd} disabled={cards.length >= MAX_CARDS} />}
+      {!readOnly && !deleteMode && (
+        <AddCardMenu onAdd={handleAdd} disabled={cards.length >= MAX_CARDS} />
+      )}
 
       {!readOnly && deleteMode && (
         <DeleteMode
@@ -185,8 +222,9 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
 
       {focusedCard && !openCard && !deleteMode && (
         <div className="focus-bar">
-          <span className="focus-bar-label">{focusedCard.type === 'note' ? 'Nota' : 'Link'}</span>
-          <button type="button" className="btn-primary focus-open-btn" onClick={() => openAndCenter(focusedCard)}>
+          <span className="focus-bar-label">{focusedCard.title || focusedCard.type}</span>
+          <button type="button" className="btn-primary focus-open-btn"
+            onClick={() => openAndCenter(focusedCard)}>
             Abrir
           </button>
         </div>
@@ -205,19 +243,18 @@ export default function CanvasBoard({ canvasId, emptyLabel, readOnly = false, on
           onUpdate={readOnly ? undefined : handleUpdate}
           onRemove={readOnly ? undefined : handleRemove}
           onSendToVrop={readOnly ? undefined : onSendToVrop}
+          onOpenDeck={readOnly ? undefined : onOpenDeck}
           onClose={() => setOpenCard(null)}
           readOnly={readOnly}
         />
       )}
 
-      {/* Expose deleteMode setter via ref trick not needed — parent passes prop if needed */}
-      <div style={{ display: 'none' }} data-delete-mode-trigger
-        onClick={() => setDeleteMode(true)} />
+      {/* Trigger oculto para DeleteMode desde CanvasTopBar */}
+      <div style={{ display: 'none' }} data-delete-mode-trigger onClick={() => setDeleteMode(true)} />
     </div>
   )
 }
 
-// Export trigger helper for CanvasTopBar
 export function triggerDeleteMode(boardRef) {
   boardRef?.current?.querySelector('[data-delete-mode-trigger]')?.click()
 }
