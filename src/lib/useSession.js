@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 
 export function useSession() {
-  const [session, setSession] = useState(undefined) // undefined = cargando
+  const [session, setSession] = useState(undefined)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {

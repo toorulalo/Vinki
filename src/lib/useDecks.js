@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 
-/** Intervalos de revisión en días por nivel */
-const INTERVALS_DAYS = [0, 1, 3, 7, 14]
+const INTERVALS_DAYS = [0, 1, 3, 7]
 
 function daysFromNow(n) {
   const d = new Date()
@@ -28,7 +27,6 @@ export function useDecks(profile) {
 
   useEffect(() => { reload() }, [reload])
 
-  /** Crea un deck vinculado a una card tipo 'deck' */
   async function createDeck(cardId, ownerId, title = 'Mi mazo') {
     const { data, error } = await supabase
       .from('decks')
@@ -39,7 +37,6 @@ export function useDecks(profile) {
     return { data, error }
   }
 
-  /** Obtiene un deck por card_id */
   async function getDeckByCardId(cardId) {
     const { data } = await supabase
       .from('decks')
@@ -49,13 +46,11 @@ export function useDecks(profile) {
     return data
   }
 
-  /** Actualiza el título de un deck */
   async function renameDeck(deckId, title) {
     await supabase.from('decks').update({ title }).eq('id', deckId)
     setDecks((prev) => prev.map((d) => d.id === deckId ? { ...d, title } : d))
   }
 
-  /** Elimina un deck (y sus flashcards, por CASCADE) */
   async function deleteDeck(deckId) {
     await supabase.from('decks').delete().eq('id', deckId)
     setDecks((prev) => prev.filter((d) => d.id !== deckId))
@@ -64,7 +59,6 @@ export function useDecks(profile) {
   return { decks, loading, reload, createDeck, getDeckByCardId, renameDeck, deleteDeck }
 }
 
-/** Hook para manejar las flashcards de un deck específico */
 export function useFlashcards(deckId) {
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(false)
@@ -103,15 +97,11 @@ export function useFlashcards(deckId) {
     await supabase.from('flashcards').delete().eq('id', id)
   }
 
-  /**
-   * Registra resultado de repaso.
-   * remembered: true = subir nivel, false = reiniciar a 0
-   */
   async function recordResult(id, remembered) {
     const card = cards.find((c) => c.id === id)
     if (!card) return
     const newLevel = remembered ? Math.min(card.level + 1, 3) : 0
-    const interval  = INTERVALS_DAYS[newLevel] ?? 0
+    const interval = INTERVALS_DAYS[newLevel] ?? 0
     const patch = {
       level:         newLevel,
       last_reviewed: new Date().toISOString(),
@@ -120,10 +110,8 @@ export function useFlashcards(deckId) {
     await updateCard(id, patch)
   }
 
-  /** Cartas listas para repasar hoy */
   const dueCards = cards.filter((c) => new Date(c.next_review) <= new Date())
 
-  /** Nivel promedio del mazo (0-3) */
   const avgLevel = cards.length
     ? Math.round(cards.reduce((s, c) => s + c.level, 0) / cards.length)
     : 0
@@ -131,6 +119,5 @@ export function useFlashcards(deckId) {
   return { cards, dueCards, avgLevel, loading, reload, addCard, updateCard, removeCard, recordResult }
 }
 
-/** Etiqueta de nivel de mazo (sin emojis) */
 export const LEVEL_LABELS = ['Nueva', 'Practicando', 'Firme', 'Dominada']
 export const LEVEL_CSS    = ['level-0', 'level-1', 'level-2', 'level-3']

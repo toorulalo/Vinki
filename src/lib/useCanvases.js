@@ -15,7 +15,9 @@ export function useCanvases(profile) {
 
     async function init() {
       const { data } = await supabase
-        .from('canvases').select('*').eq('owner_id', profile.id)
+        .from('canvases')
+        .select('*')
+        .eq('owner_id', profile.id)
         .order('created_at', { ascending: true })
       if (active) { setCanvases(data || []); setLoading(false) }
     }
@@ -23,13 +25,14 @@ export function useCanvases(profile) {
     return () => { active = false }
   }, [profile])
 
-  async function addCanvas(name) {
+  async function addCanvas(title) {
     if (canvases.length >= MAX_CANVASES)
       return { error: new Error(`Máximo ${MAX_CANVASES} lienzos por usuario.`) }
     const { data, error } = await supabase
       .from('canvases')
-      .insert({ owner_id: profile.id, name: name || 'Nuevo lienzo' })
-      .select().single()
+      .insert({ owner_id: profile.id, title: title || 'Nuevo lienzo', is_active: false })
+      .select()
+      .single()
     if (data) setCanvases((prev) => [...prev, data])
     return { data, error }
   }
@@ -40,10 +43,16 @@ export function useCanvases(profile) {
     return { error }
   }
 
-  async function renameCanvas(id, name) {
-    setCanvases((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)))
-    await supabase.from('canvases').update({ name, updated_at: new Date().toISOString() }).eq('id', id)
+  async function renameCanvas(id, title) {
+    setCanvases((prev) => prev.map((c) => (c.id === id ? { ...c, title } : c)))
+    await supabase.from('canvases').update({ title, updated_at: new Date().toISOString() }).eq('id', id)
   }
 
-  return { canvases, loading, addCanvas, removeCanvas, renameCanvas }
+  async function setActiveCanvas(id) {
+    setCanvases((prev) => prev.map((c) => ({ ...c, is_active: c.id === id })))
+    await supabase.from('canvases').update({ is_active: false }).eq('owner_id', profile.id)
+    await supabase.from('canvases').update({ is_active: true, updated_at: new Date().toISOString() }).eq('id', id)
+  }
+
+  return { canvases, loading, addCanvas, removeCanvas, renameCanvas, setActiveCanvas }
 }

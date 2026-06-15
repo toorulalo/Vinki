@@ -1,0 +1,275 @@
+/* ============================================================
+   Vinki — Session (Vinki-Vinki) Styles
+   ============================================================ */
+
+/* ─── Session entrance screen ─── */
+.session-entrance {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-canvas);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 150;
+  gap: 24px;
+  padding: 32px;
+}
+
+.session-entrance-title {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: -0.02em;
+  animation: slide-up var(--duration-slow) var(--ease-out) both;
+}
+
+.session-entrance-subtitle {
+  color: var(--text-secondary);
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  max-width: 340px;
+  animation: slide-up var(--duration-slow) var(--ease-out) 100ms both;
+}
+
+.session-entrance-avatars {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  animation: fade-in var(--duration-slow) var(--ease-out) 200ms both;
+}
+
+.session-entrance-avatar-left {
+  animation: entrance-avatar-left var(--duration-slow) var(--ease-spring) 300ms both;
+}
+
+.session-entrance-avatar-right {
+  animation: entrance-avatar-right var(--duration-slow) var(--ease-spring) 300ms both;
+}
+
+.session-entrance-connector {
+  width: 40px; height: 2px;
+  background: linear-gradient(to right, var(--color-primary), var(--color-accent));
+  border-radius: var(--radius-full);
+  animation: fade-in var(--duration-slow) ease 500ms both;
+}
+
+.session-entrance-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  animation: fade-in var(--duration-slow) ease 600ms both;
+}
+
+/* ─── Session top bar ─── */
+.session-topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 48px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  backdrop-filter: blur(8px);
+}
+
+.session-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.session-label {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.session-topbar-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.partner-focus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.partner-focus-name { font-weight: 500; color: var(--text-primary); }
+
+.session-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ─── Presence indicator dot ─── */
+.presence-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+.presence-dot.online  { background: var(--color-success); }
+.presence-dot.offline { background: var(--text-muted); }
+.presence-dot.online::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--color-success);
+  animation: presence-ping 1.5s ease-out infinite;
+}
+
+/* ─── View switch button ─── */
+.view-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--duration-fast) ease,
+              box-shadow var(--duration-fast) ease;
+  position: relative;
+}
+.view-switch-btn:hover { background: var(--bg-surface-3); }
+.view-switch-btn.has-update {
+  animation: pulse-ring 1.5s ease-out infinite;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ─── Readonly mode overlay ─── */
+.readonly-overlay {
+  position: fixed;
+  top: 48px; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.readonly-banner {
+  position: absolute;
+  top: 16px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.6);
+  color: white;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  pointer-events: all;
+  white-space: nowrap;
+}
+
+/* ─── Reactions ─── */
+.reactions-bar {
+  position: fixed;
+  bottom: 24px; left: 16px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reaction-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-spring),
+              box-shadow var(--duration-fast) ease;
+}
+.reaction-btn:hover { transform: scale(1.15); box-shadow: var(--shadow-md); }
+.reaction-btn:active { transform: scale(0.9); }
+.reaction-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+/* ─── Reaction bubble animation ─── */
+.reaction-bubble {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  font-size: 28px;
+  animation: reaction-burst 1.2s var(--ease-out) forwards;
+  left: var(--rx);
+  top: var(--ry);
+}
+
+.reaction-label {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 3px 8px;
+  white-space: nowrap;
+  animation: fade-in var(--duration-fast) ease both,
+             slide-up var(--duration-normal) var(--ease-out) both;
+}
+
+/* ─── Session menu (kebab) ─── */
+.session-menu {
+  position: fixed;
+  top: 56px; right: 8px;
+  z-index: 55;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  box-shadow: var(--shadow-lg);
+  animation: card-pop var(--duration-fast) var(--ease-spring);
+  min-width: 220px;
+}
+
+.session-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-fast) ease;
+}
+.session-menu-item:hover { background: var(--bg-surface-2); }
+.session-menu-item.danger { color: var(--color-danger); }
+.session-menu-item.danger:hover { background: rgba(239,68,68,0.08); }
+.session-menu-divider { height: 1px; background: var(--border); margin: 4px 0; }

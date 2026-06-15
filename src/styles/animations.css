@@ -1,0 +1,82 @@
+/* ============================================================
+   Vinki — Animations
+   ============================================================ */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes card-pop {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1);    opacity: 0.8; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+@keyframes reaction-burst {
+  0%   { transform: scale(0) translateY(0);   opacity: 1; }
+  60%  { transform: scale(1.4) translateY(-30px); opacity: 1; }
+  100% { transform: scale(1) translateY(-60px); opacity: 0; }
+}
+
+@keyframes float-a {
+  0%, 100% { transform: translateY(0)   rotate(-0.3deg); }
+  50%       { transform: translateY(-4px) rotate(0.3deg); }
+}
+
+@keyframes float-b {
+  0%, 100% { transform: translateY(0)   rotate(0.3deg); }
+  50%       { transform: translateY(-5px) rotate(-0.3deg); }
+}
+
+@keyframes confetti-fall {
+  to { transform: translateY(110vh) rotate(540deg); opacity: 0; }
+}
+
+@keyframes entrance-avatar-left {
+  from { transform: translateX(-80px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes entrance-avatar-right {
+  from { transform: translateX(80px);  opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes presence-ping {
+  0%   { transform: scale(1);    opacity: 1; }
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+/* ─── Utility animation classes ─── */
+
+.fade-in     { animation: fade-in     var(--duration-normal) var(--ease-out) both; }
+.slide-up    { animation: slide-up    var(--duration-normal) var(--ease-out) both; }
+.card-pop    { animation: card-pop    var(--duration-slow)   var(--ease-spring) both; }
+
+.world-animate {
+  transition: transform var(--duration-slow) var(--ease-out);
+}

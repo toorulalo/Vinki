@@ -21,7 +21,7 @@ export function playChime(volume = 1) {
 }
 
 export function burstConfetti() {
-  const colors = ['#C8702D', '#EAE0C4', '#8B5E3C', '#F0DCC8', '#4E342E']
+  const colors = ['#2E7D52', '#4CAF76', '#E07240', '#F5F1EB', '#F0B429']
   const container = document.createElement('div')
   container.className = 'confetti-layer'
   document.body.appendChild(container)
