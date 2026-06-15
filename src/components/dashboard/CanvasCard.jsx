@@ -14,11 +14,11 @@ function relativeDate(dateStr) {
   const mins  = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days  = Math.floor(diff / 86400000)
-  if (mins < 1)  return 'ahora mismo'
-  if (mins < 60) return `hace ${mins} min`
+  if (mins < 1)   return 'ahora mismo'
+  if (mins < 60)  return `hace ${mins} min`
   if (hours < 24) return `hace ${hours}h`
   if (days === 1) return 'ayer'
-  if (days < 7)  return `hace ${days} días`
+  if (days < 7)   return `hace ${days} días`
   return new Date(dateStr).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
 }
 
@@ -33,7 +33,11 @@ export default function CanvasCard({ canvas, colorIndex = 0, onOpen, onRemove })
   }
 
   return (
-    <div className="canvas-card" onClick={onOpen} role="button" tabIndex={0}
+    <div
+      className="canvas-card"
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
       onKeyDown={e => e.key === 'Enter' && onOpen()}
       style={{ cursor: 'pointer', position: 'relative' }}
     >
@@ -51,11 +55,12 @@ export default function CanvasCard({ canvas, colorIndex = 0, onOpen, onRemove })
         </p>
       </div>
 
-      {/* Remove button */}
+      {/* Remove button — appears on hover via CSS */}
       <button
         type="button"
         onClick={handleRemove}
         aria-label="Eliminar lienzo"
+        className="canvas-card-delete-btn"
         style={{
           position: 'absolute',
           top: 6,
@@ -63,21 +68,18 @@ export default function CanvasCard({ canvas, colorIndex = 0, onOpen, onRemove })
           width: 24,
           height: 24,
           borderRadius: '50%',
-          background: 'rgba(0,0,0,0.3)',
+          background: 'rgba(0,0,0,0.35)',
           border: 'none',
           color: '#fff',
           fontSize: 14,
-          lineHeight: '24px',
-          textAlign: 'center',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           opacity: 0,
-          transition: 'opacity var(--duration-fast) ease',
+          transition: 'opacity 0.15s ease',
           padding: 0,
         }}
-        className="canvas-card-delete-btn"
       >
         ×
       </button>

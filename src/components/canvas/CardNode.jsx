@@ -39,7 +39,7 @@ export default function CardNode({
   onFocus,
   onBlur,
   onEdit,
-  onMove,
+  onMove: onMoveProp,
   onResize,
   onRemove,
   viewScale = 1,
@@ -115,7 +115,7 @@ export default function CardNode({
           const dy = (ev.clientY - startY) / viewScale
           const nx = origX + dx
           const ny = origY + dy
-          onMove(nx, ny)
+          onMoveProp(nx, ny)
         }
         return false
       })
@@ -136,7 +136,7 @@ export default function CardNode({
 
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
-  }, [card.x, card.y, isFocused, onFocus, onBlur, onEdit, onMove, viewScale])
+  }, [card.x, card.y, isFocused, onFocus, onBlur, onEdit, onMoveProp, viewScale])
 
   // Resize handle logic
   const handleResizeDown = useCallback((e) => {

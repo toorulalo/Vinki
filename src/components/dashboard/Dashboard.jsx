@@ -42,8 +42,6 @@ export default function Dashboard({
     setAddError('')
   }
 
-  const partnerProfile = null // Could be fetched from session participants
-
   return (
     <>
       <div className="dashboard" style={{ paddingTop: 64 }}>
@@ -97,7 +95,9 @@ export default function Dashboard({
                 style={{ fontSize: 'var(--text-sm)' }}
               />
               {addError && (
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-danger)' }}>{addError}</p>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-danger, #ef4444)', margin: 0 }}>
+                  {addError}
+                </p>
               )}
               <div style={{ display: 'flex', gap: 6 }}>
                 <button type="submit" className="btn btn-primary btn-sm" style={{ flex: 1 }}>
@@ -121,7 +121,6 @@ export default function Dashboard({
         {session ? (
           <ActiveSession
             session={session}
-            friends={friends}
             onLeave={onLeaveSession}
           />
         ) : (
@@ -168,7 +167,7 @@ export default function Dashboard({
   )
 }
 
-function ActiveSession({ session, friends, onLeave }) {
+function ActiveSession({ session, onLeave }) {
   return (
     <div
       style={{
