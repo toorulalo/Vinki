@@ -1,6 +1,22 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 
+function triggerFilePicker(accept, onFile) {
+  const prev = document.getElementById('__vinki_file_input')
+  if (prev) prev.remove()
+  const input = document.createElement('input')
+  input.id = '__vinki_file_input'
+  input.type = 'file'
+  input.accept = accept
+  input.style.cssText = 'position:fixed;top:-200px;left:-200px;opacity:0;'
+  document.body.appendChild(input)
+  input.addEventListener('change', () => {
+    if (input.files?.[0]) onFile(input.files[0])
+    setTimeout(() => input.remove(), 1000)
+  }, { once: true })
+  input.click()
+}
+
 export default function PdfCard({ card, isEditing, onUpdate }) {
   const [url,       setUrl]       = useState(card.content?.url || '')
   const [title,     setTitle]     = useState(card.title        || '')
@@ -12,8 +28,7 @@ export default function PdfCard({ card, isEditing, onUpdate }) {
     ? `https://docs.google.com/viewer?url=${encodeURIComponent(currentUrl)}&embedded=true`
     : null
 
-  async function handleFile(e) {
-    const file = e.target.files?.[0]
+  async function handleFile(file) {
     if (!file) return
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     if (!isPdf) { setUploadErr('Solo se aceptan archivos PDF.'); return }
@@ -59,7 +74,8 @@ export default function PdfCard({ card, isEditing, onUpdate }) {
           />
         )}
 
-        <label
+        <button
+          type="button"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -73,17 +89,13 @@ export default function PdfCard({ card, isEditing, onUpdate }) {
             fontWeight: 500,
             cursor: uploading ? 'not-allowed' : 'pointer',
             color: 'var(--text-secondary)',
+            fontFamily: 'inherit',
           }}
+          disabled={uploading}
+          onClick={() => !uploading && triggerFilePicker('.pdf,application/pdf', handleFile)}
         >
           📄 {uploading ? 'Subiendo...' : 'Subir PDF (máx 25 MB)'}
-          <input
-            type="file"
-            accept=".pdf,application/pdf"
-            onChange={handleFile}
-            style={{ display: 'none' }}
-            disabled={uploading}
-          />
-        </label>
+        </button>
 
         {uploadErr && (
           <p style={{ color: 'var(--color-danger)', fontSize: 'var(--text-xs)' }}>

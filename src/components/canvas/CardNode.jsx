@@ -6,6 +6,7 @@ import PdfCard from '../cards/PdfCard'
 import TimerCard from '../cards/TimerCard'
 import DeckCard from '../cards/DeckCard'
 
+const LONG_PRESS_MS  = 400
 const DOUBLE_TAP_MS  = 300
 const MOVE_THRESHOLD = 6
 const MIN_W = 160
@@ -41,6 +42,7 @@ export default function CardNode({
 }) {
   const nodeRef      = useRef(null)
   const isDragging   = useRef(false)
+  const longTimer    = useRef(null)
   const lastTapTime  = useRef(0)
   const localPos     = useRef({ x: card.x, y: card.y })
 
@@ -77,13 +79,20 @@ export default function CardNode({
     const origY  = localPos.current.y
     let didMove  = false
 
+    // Long press → drag
+    longTimer.current = setTimeout(() => {
+      if (!didMove) {
+        isDragging.current = true
+        setIsMoving(true)
+      }
+    }, LONG_PRESS_MS)
+
     function onMove(ev) {
       const dx = ev.clientX - startX
       const dy = ev.clientY - startY
       if (!didMove && (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD)) {
         didMove = true
-        isDragging.current = true
-        setIsMoving(true)
+        clearTimeout(longTimer.current)
       }
       if (isDragging.current) {
         setLocalPos({ x: origX + dx / viewScale, y: origY + dy / viewScale })
@@ -91,6 +100,7 @@ export default function CardNode({
     }
 
     function onUp(ev) {
+      clearTimeout(longTimer.current)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       if (isDragging.current) {
