@@ -6,7 +6,7 @@ import PdfCard from '../cards/PdfCard'
 import TimerCard from '../cards/TimerCard'
 import DeckCard from '../cards/DeckCard'
 
-const LONG_PRESS_MS  = 500
+const DOUBLE_TAP_MS  = 300
 const MOVE_THRESHOLD = 6
 const MIN_W = 160
 const MIN_H = 120
@@ -39,12 +39,20 @@ export default function CardNode({
   onRemove,
   viewScale = 1,
 }) {
-  const nodeRef        = useRef(null)
-  const isDragging     = useRef(false)
-  const longPressTimer = useRef(null)
-  const [isMoving, setIsMoving]   = useState(false)
-  const [localPos, setLocalPos]   = useState({ x: card.x, y: card.y })
-  const [popped,   setPopped]     = useState(true)
+  const nodeRef      = useRef(null)
+  const isDragging   = useRef(false)
+  const lastTapTime  = useRef(0)
+  const localPos     = useRef({ x: card.x, y: card.y })
+
+  const [localPosState, setLocalPosState] = useState({ x: card.x, y: card.y })
+  const [isMoving, setIsMoving]           = useState(false)
+  const [popped,   setPopped]             = useState(true)
+
+  // Helper: update both the ref and state together
+  function setLocalPos(v) {
+    localPos.current = v
+    setLocalPosState(v)
+  }
 
   // Remove pop class after animation
   useEffect(() => {
@@ -52,7 +60,7 @@ export default function CardNode({
     return () => clearTimeout(t)
   }, [])
 
-  // Sync local pos when card prop changes (e.g., remote update)
+  // Sync local pos when card prop changes (e.g., remote update) — but not while dragging
   useEffect(() => {
     if (!isDragging.current) {
       setLocalPos({ x: card.x, y: card.y })
@@ -60,72 +68,62 @@ export default function CardNode({
   }, [card.x, card.y])
 
   const handlePointerDown = useCallback((e) => {
-    // Ignore if interacting with resize handle or interactive children
     if (e.target.closest('.card-resize-handle, button, a, input, textarea, select')) return
     e.stopPropagation()
 
-    const el      = nodeRef.current
-    const startX  = e.clientX
-    const startY  = e.clientY
-    const origX   = card.x
-    const origY   = card.y
-    let moved     = false
-
-    // Long press → drag mode
-    longPressTimer.current = setTimeout(() => {
-      isDragging.current = true
-      setIsMoving(true)
-      el?.setPointerCapture?.(e.pointerId)
-    }, LONG_PRESS_MS)
+    const startX = e.clientX
+    const startY = e.clientY
+    const origX  = localPos.current.x
+    const origY  = localPos.current.y
+    let didMove  = false
 
     function onMove(ev) {
-      const dx = (ev.clientX - startX) / viewScale
-      const dy = (ev.clientY - startY) / viewScale
-
-      if (Math.abs(ev.clientX - startX) > MOVE_THRESHOLD || Math.abs(ev.clientY - startY) > MOVE_THRESHOLD) {
-        moved = true
-        clearTimeout(longPressTimer.current)
+      const dx = ev.clientX - startX
+      const dy = ev.clientY - startY
+      if (!didMove && (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD)) {
+        didMove = true
+        isDragging.current = true
+        setIsMoving(true)
       }
-
       if (isDragging.current) {
-        const nx = origX + dx
-        const ny = origY + dy
-        setLocalPos({ x: nx, y: ny })
+        setLocalPos({ x: origX + dx / viewScale, y: origY + dy / viewScale })
       }
     }
 
     function onUp(ev) {
-      clearTimeout(longPressTimer.current)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
-
       if (isDragging.current) {
-        const dx = (ev.clientX - startX) / viewScale
-        const dy = (ev.clientY - startY) / viewScale
-        const nx = origX + dx
-        const ny = origY + dy
-        onMoveProp(nx, ny)
+        const dx = ev.clientX - startX
+        const dy = ev.clientY - startY
+        onMoveProp(origX + dx / viewScale, origY + dy / viewScale)
         isDragging.current = false
         setIsMoving(false)
-      } else if (!moved) {
-        // Single tap = edit
-        onEdit()
+      } else if (!didMove) {
+        // tap — check double tap
+        const now = Date.now()
+        if (now - lastTapTime.current < DOUBLE_TAP_MS) {
+          onEdit()
+          lastTapTime.current = 0
+        } else {
+          lastTapTime.current = now
+        }
       }
     }
 
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
-  }, [card.x, card.y, onEdit, onMoveProp, viewScale])
+  }, [onEdit, onMoveProp, viewScale])
 
   // Resize handle logic
   const handleResizeDown = useCallback((e) => {
     e.stopPropagation()
     e.preventDefault()
 
-    const startX  = e.clientX
-    const startY  = e.clientY
-    const origW   = card.width  || 260
-    const origH   = card.height || 180
+    const startX = e.clientX
+    const startY = e.clientY
+    const origW  = card.width  || 260
+    const origH  = card.height || 180
 
     function onResizeMove(ev) {
       const dw = (ev.clientX - startX) / viewScale
@@ -152,13 +150,13 @@ export default function CardNode({
   const classes = [
     'card-node',
     `card-type-${card.type}`,
-    isMoving   ? 'is-moving'  : '',
-    popped     ? 'card-pop'   : '',
+    isMoving ? 'is-moving' : '',
+    popped   ? 'card-pop'  : '',
   ].filter(Boolean).join(' ')
 
   const style = {
-    left:   localPos.x,
-    top:    localPos.y,
+    left:   localPosState.x,
+    top:    localPosState.y,
     width:  card.width  || 260,
     height: card.height || 180,
     zIndex: isMoving ? 50 : 1,

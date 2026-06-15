@@ -7,7 +7,6 @@ import { useSessionChannel } from '../lib/useSessionChannel'
 import Dashboard from '../components/dashboard/Dashboard'
 import CanvasBoard from '../components/canvas/CanvasBoard'
 import SessionView from '../components/session/SessionView'
-import GlobalMusicPlayer from '../components/music/GlobalMusicPlayer'
 import SettingsPanel from '../components/ui/SettingsPanel'
 import { IconBack, IconSettings } from '../components/icons/index.jsx'
 
@@ -98,8 +97,6 @@ export default function Canvas({ session, profile }) {
           />
         )}
 
-        <GlobalMusicPlayer />
-
         {showSettings && (
           <SettingsPanel
             profile={localProfile}
@@ -139,8 +136,6 @@ export default function Canvas({ session, profile }) {
         onJoinSession={joinSession}
         onLeaveSession={leaveSession}
       />
-
-      <GlobalMusicPlayer />
 
       {showSettings && (
         <SettingsPanel
