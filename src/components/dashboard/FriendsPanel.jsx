@@ -31,8 +31,7 @@ export default function FriendsPanel({ profile, session, onClose, onCreateSessio
   }
 
   async function handleInvite(friend) {
-    // Create a session (without a specific canvas, will be assigned later)
-    const { error } = await onCreateSession(null)
+    const { error } = await onCreateSession(null, friend.profile.id)
     if (error) {
       alert(error.message)
     }

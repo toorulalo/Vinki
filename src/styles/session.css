@@ -273,3 +273,71 @@
 .session-menu-item.danger { color: var(--color-danger); }
 .session-menu-item.danger:hover { background: rgba(239,68,68,0.08); }
 .session-menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+/* ─── Session invite / waiting room modals ─── */
+.session-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fade-in 0.2s ease both;
+}
+
+.session-modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 36px 28px;
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.22);
+  animation: session-modal-in 0.35s var(--ease-spring) both;
+}
+
+.session-modal-icon {
+  font-size: 3.5rem;
+  line-height: 1;
+  animation: bounce-in 0.45s var(--ease-spring) 0.1s both;
+}
+
+.session-modal-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.session-modal-body {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.session-modal-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.session-modal-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.session-modal-actions .btn {
+  flex: 1;
+}

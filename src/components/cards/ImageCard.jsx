@@ -2,14 +2,29 @@ import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { compressImage } from '../../lib/compressImage'
 
+function triggerFilePicker(accept, onFile) {
+  const prev = document.getElementById('__vinki_file_input')
+  if (prev) prev.remove()
+  const input = document.createElement('input')
+  input.id = '__vinki_file_input'
+  input.type = 'file'
+  input.accept = accept
+  input.style.cssText = 'position:fixed;top:-200px;left:-200px;opacity:0;'
+  document.body.appendChild(input)
+  input.addEventListener('change', () => {
+    if (input.files?.[0]) onFile(input.files[0])
+    setTimeout(() => input.remove(), 1000)
+  }, { once: true })
+  input.click()
+}
+
 export default function ImageCard({ card, isEditing, onUpdate, profile }) {
   const [url,       setUrl]       = useState(card.content?.url  || '')
   const [note,      setNote]      = useState(card.content?.note || '')
   const [uploading, setUploading] = useState(false)
   const [uploadErr, setUploadErr] = useState('')
 
-  async function handleFile(e) {
-    const file = e.target.files?.[0]
+  async function handleFile(file) {
     if (!file) return
     setUploading(true)
     setUploadErr('')
@@ -54,7 +69,8 @@ export default function ImageCard({ card, isEditing, onUpdate, profile }) {
           />
         )}
 
-        <label
+        <button
+          type="button"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -69,17 +85,13 @@ export default function ImageCard({ card, isEditing, onUpdate, profile }) {
             cursor: uploading ? 'not-allowed' : 'pointer',
             color: 'var(--text-secondary)',
             transition: 'background var(--duration-fast) ease',
+            fontFamily: 'inherit',
           }}
+          disabled={uploading}
+          onClick={() => !uploading && triggerFilePicker('image/*', handleFile)}
         >
           🖼️ {uploading ? 'Subiendo...' : 'Subir imagen'}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFile}
-            style={{ display: 'none' }}
-            disabled={uploading}
-          />
-        </label>
+        </button>
 
         {uploadErr && (
           <p style={{ color: 'var(--color-danger)', fontSize: 'var(--text-xs)' }}>

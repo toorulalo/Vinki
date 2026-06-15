@@ -1,11 +1,24 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from './supabaseClient'
 
 const SESSION_EXPIRY_HOURS = 48
 
-export function useVinkiSession(profile) {
+export function useVinkiSession(profile, onInvite) {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const onInviteRef = useRef(onInvite)
+  onInviteRef.current = onInvite
+
+  // Subscribe to personal channel for incoming session invites
+  useEffect(() => {
+    if (!profile?.id) return
+    const ch = supabase.channel(`vinki-user-${profile.id}`)
+    ch.on('broadcast', { event: 'session_invite' }, ({ payload }) => {
+      onInviteRef.current?.(payload)
+    })
+    ch.subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [profile?.id])
 
   const reload = useCallback(async () => {
     if (!profile) { setLoading(false); return }
@@ -61,7 +74,7 @@ export function useVinkiSession(profile) {
     }
   }
 
-  async function createSession(individualCanvasId) {
+  async function createSession(individualCanvasId, invitedUserId = null) {
     if (!profile) return { error: new Error('No hay perfil activo.') }
 
     const { data: existing } = await supabase
@@ -75,7 +88,12 @@ export function useVinkiSession(profile) {
     const now = new Date().toISOString()
     const { data: sess, error: sessError } = await supabase
       .from('sessions')
-      .insert({ host_id: profile.id, mode: 'normal', last_activity_at: now })
+      .insert({
+        host_id: profile.id,
+        mode: 'normal',
+        last_activity_at: now,
+        invited_user_id: invitedUserId || null,
+      })
       .select()
       .single()
 
@@ -93,6 +111,27 @@ export function useVinkiSession(profile) {
     if (partError) {
       await supabase.from('sessions').delete().eq('id', sess.id)
       return { error: partError }
+    }
+
+    // Broadcast invite to the invited user's personal channel
+    if (invitedUserId) {
+      try {
+        const inviteChannel = supabase.channel(`vinki-user-${invitedUserId}`)
+        await inviteChannel.subscribe()
+        inviteChannel.send({
+          type: 'broadcast',
+          event: 'session_invite',
+          payload: {
+            sessionId: sess.id,
+            hostName: profile.display_name,
+            hostColor: profile.avatar_color,
+            hostId: profile.id,
+          },
+        })
+        supabase.removeChannel(inviteChannel)
+      } catch (err) {
+        console.warn('No se pudo enviar la invitación por broadcast:', err)
+      }
     }
 
     await reload()
@@ -159,5 +198,26 @@ export function useVinkiSession(profile) {
     return hoursSince > SESSION_EXPIRY_HOURS
   }
 
-  return { session, loading, createSession, joinSession, leaveSession, updateActivity, checkExpiry, reload }
+  async function getPendingInvitations() {
+    if (!profile) return []
+    const { data } = await supabase
+      .from('sessions')
+      .select('id, host_id, created_at, profiles!sessions_host_id_fkey(display_name, avatar_color)')
+      .eq('invited_user_id', profile.id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+    return data || []
+  }
+
+  return {
+    session,
+    loading,
+    createSession,
+    joinSession,
+    leaveSession,
+    updateActivity,
+    checkExpiry,
+    reload,
+    getPendingInvitations,
+  }
 }
