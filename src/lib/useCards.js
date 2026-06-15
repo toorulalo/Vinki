@@ -4,8 +4,11 @@ import { supabase } from './supabaseClient'
 export const MAX_CARDS = 40
 
 function defaultContent(type) {
-  if (type === 'note') return { note: '' }
-  if (type === 'link') return { url: '', note: '' }
+  if (type === 'note')  return { note: '' }
+  if (type === 'link')  return { url: '', note: '', title: '' }
+  if (type === 'image') return { url: '', note: '' }
+  if (type === 'pdf')   return { url: '', title: '' }
+  if (type === 'deck')  return { deckId: null }
   return {}
 }
 
@@ -27,20 +30,22 @@ export function useCards(canvasId) {
     load()
 
     const channel = supabase.channel(`cards-${canvasId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cards', filter: `canvas_id=eq.${canvasId}` },
-        (payload) => {
-          setCards((prev) => {
-            if (payload.eventType === 'INSERT') {
-              if (prev.some((c) => c.id === payload.new.id)) return prev
-              return [...prev, payload.new]
-            }
-            if (payload.eventType === 'UPDATE')
-              return prev.map((c) => c.id === payload.new.id ? payload.new : c)
-            if (payload.eventType === 'DELETE')
-              return prev.filter((c) => c.id !== payload.old.id)
-            return prev
-          })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'cards',
+        filter: `canvas_id=eq.${canvasId}`
+      }, (payload) => {
+        setCards((prev) => {
+          if (payload.eventType === 'INSERT') {
+            if (prev.some((c) => c.id === payload.new.id)) return prev
+            return [...prev, payload.new]
+          }
+          if (payload.eventType === 'UPDATE')
+            return prev.map((c) => c.id === payload.new.id ? payload.new : c)
+          if (payload.eventType === 'DELETE')
+            return prev.filter((c) => c.id !== payload.old.id)
+          return prev
         })
+      })
       .subscribe()
 
     return () => { active = false; supabase.removeChannel(channel) }
@@ -51,8 +56,18 @@ export function useCards(canvasId) {
       return { error: new Error(`Máximo ${MAX_CARDS} tarjetas por lienzo.`) }
     const { data, error } = await supabase
       .from('cards')
-      .insert({ canvas_id: canvasId, type, title: '', content: defaultContent(type), x: pos?.x ?? 100, y: pos?.y ?? 100 })
-      .select().single()
+      .insert({
+        canvas_id: canvasId,
+        type,
+        title:   '',
+        content: defaultContent(type),
+        x:       pos?.x ?? 100,
+        y:       pos?.y ?? 100,
+        width:   type === 'image' ? 220 : 182,
+        height:  150,
+      })
+      .select()
+      .single()
     if (data) setCards((prev) => prev.some((c) => c.id === data.id) ? prev : [...prev, data])
     return { data, error }
   }
@@ -63,7 +78,9 @@ export function useCards(canvasId) {
 
   async function updateCard(id, patch) {
     updateCardLocal(id, patch)
-    await supabase.from('cards').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
+    await supabase.from('cards')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', id)
   }
 
   async function removeCard(id) {
