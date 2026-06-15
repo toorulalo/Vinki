@@ -1,0 +1,179 @@
+/* ============================================================
+   Vinki — Canvas Board Styles
+   ============================================================ */
+
+.board-wrapper {
+  position: fixed;
+  inset: 0;
+  top: 52px;
+  overflow: hidden;
+}
+
+.canvas-board {
+  position: relative;
+  width: 100%; height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  background-color: var(--bg-canvas);
+  background-image: radial-gradient(var(--bg-dots) var(--dot-size), transparent 0);
+  background-size: var(--dot-spacing) var(--dot-spacing);
+}
+.canvas-board:active { cursor: grabbing; }
+
+.canvas-world {
+  position: absolute;
+  top: 0; left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.canvas-empty-hint {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  pointer-events: none;
+  max-width: 260px;
+  line-height: 1.6;
+}
+
+.canvas-empty-hint-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+/* ─── Add Block FAB ─── */
+
+.canvas-fab {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.fab-btn {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--text-inverse);
+  border: none;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-spring),
+              filter var(--duration-fast) ease;
+}
+.fab-btn:hover   { filter: brightness(1.08); }
+.fab-btn:active  { transform: scale(0.92); }
+.fab-btn.is-open { transform: rotate(45deg); }
+
+.fab-menu {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 8px;
+  box-shadow: var(--shadow-lg);
+  animation: card-pop var(--duration-normal) var(--ease-spring);
+  transform-origin: bottom right;
+  min-width: 180px;
+}
+
+.fab-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) ease;
+}
+.fab-menu-item:hover { background: var(--bg-surface-2); }
+.fab-menu-item svg   { color: var(--text-muted); flex-shrink: 0; }
+
+/* ─── Minimap ─── */
+
+.canvas-minimap {
+  position: fixed;
+  bottom: 24px; left: 24px;
+  width: 120px; height: 80px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.minimap-viewport {
+  position: absolute;
+  border: 2px solid var(--color-primary);
+  border-radius: 2px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.minimap-dot {
+  position: absolute;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  opacity: 0.6;
+}
+
+/* ─── Selection toolbar ─── */
+
+.selection-toolbar {
+  position: fixed;
+  top: 62px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 6px 8px;
+  box-shadow: var(--shadow-md);
+  animation: slide-up var(--duration-fast) var(--ease-out);
+}
+
+.selection-toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background var(--duration-fast) ease;
+  white-space: nowrap;
+}
+.selection-toolbar-btn:hover { background: var(--bg-surface-2); }
+.selection-toolbar-btn.danger { color: var(--color-danger); }
+.selection-toolbar-btn.danger:hover { background: rgba(239,68,68,0.08); }
+.selection-toolbar-divider { width: 1px; height: 20px; background: var(--border); }

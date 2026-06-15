@@ -3,11 +3,21 @@ import { supabase } from './supabaseClient'
 
 export const MAX_CARDS = 40
 
+const DEFAULT_SIZES = {
+  note:  { width: 260, height: 180 },
+  link:  { width: 260, height: 200 },
+  image: { width: 260, height: 220 },
+  pdf:   { width: 220, height: 160 },
+  timer: { width: 200, height: 200 },
+  deck:  { width: 220, height: 160 },
+}
+
 function defaultContent(type) {
   if (type === 'note')  return { note: '' }
   if (type === 'link')  return { url: '', note: '', title: '' }
   if (type === 'image') return { url: '', note: '' }
   if (type === 'pdf')   return { url: '', title: '' }
+  if (type === 'timer') return { duration: 25 * 60 }
   if (type === 'deck')  return { deckId: null }
   return {}
 }
@@ -23,7 +33,9 @@ export function useCards(canvasId) {
 
     async function load() {
       const { data } = await supabase
-        .from('cards').select('*').eq('canvas_id', canvasId)
+        .from('cards')
+        .select('*')
+        .eq('canvas_id', canvasId)
         .order('updated_at', { ascending: true })
       if (active) { setCards(data || []); setLoading(false) }
     }
@@ -54,17 +66,21 @@ export function useCards(canvasId) {
   async function addCard(type, pos) {
     if (cards.length >= MAX_CARDS)
       return { error: new Error(`Máximo ${MAX_CARDS} tarjetas por lienzo.`) }
+    const sizes = DEFAULT_SIZES[type] || { width: 260, height: 180 }
     const { data, error } = await supabase
       .from('cards')
       .insert({
         canvas_id: canvasId,
         type,
-        title:   '',
-        content: defaultContent(type),
-        x:       pos?.x ?? 100,
-        y:       pos?.y ?? 100,
-        width:   type === 'image' ? 220 : 182,
-        height:  150,
+        title:     '',
+        content:   defaultContent(type),
+        x:         pos?.x ?? 100,
+        y:         pos?.y ?? 100,
+        width:     sizes.width,
+        height:    sizes.height,
+        z:         0,
+        group_id:  null,
+        minimized: false,
       })
       .select()
       .single()

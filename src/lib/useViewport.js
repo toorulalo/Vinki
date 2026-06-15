@@ -83,7 +83,12 @@ export function useViewport(containerRef) {
     return { x: (sx - cur.x) / cur.scale, y: (sy - cur.y) / cur.scale }
   }, [])
 
-  return { view, animating, onWheel, onPointerDown, onPointerMove, onPointerUp, centerOn, screenToWorld }
+  const worldToScreen = useCallback((wx, wy) => {
+    const cur = viewRef.current
+    return { x: wx * cur.scale + cur.x, y: wy * cur.scale + cur.y }
+  }, [])
+
+  return { view, animating, onWheel, onPointerDown, onPointerMove, onPointerUp, centerOn, screenToWorld, worldToScreen }
 }
 
 export function useViewportWheelBinding(containerRef, onWheel) {

@@ -14,3 +14,9 @@ export function getYoutubeId(url) {
 export function getDomain(url) {
   try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' }
 }
+
+export function getFavicon(url) {
+  const domain = getDomain(url)
+  if (!domain) return ''
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+}
