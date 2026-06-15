@@ -5,6 +5,7 @@ import { useCanvases } from '../lib/useCanvases'
 import { useSessions } from '../lib/useSessions'
 import { useVropThreads } from '../lib/useVropThreads'
 import { useHistory } from '../lib/useHistory'
+import { useDecks } from '../lib/useDecks'
 import CanvasBoard from '../components/CanvasBoard'
 import CanvasTopBar from '../components/CanvasTopBar'
 import SessionEntry from '../components/SessionEntry'
@@ -15,6 +16,8 @@ import NameCanvasDialog from '../components/NameCanvasDialog'
 import Onboarding from '../components/Onboarding'
 import Dashboard from '../components/Dashboard'
 import SettingsPanel, { getAnimationsEnabled } from '../components/SettingsPanel'
+import DeckEditPanel from '../components/DeckEditPanel'
+import ReviewSession from '../components/ReviewSession'
 import { IconSettings, IconInbox, IconVinki, IconBack } from '../components/icons/index.jsx'
 
 export default function Canvas({ session }) {
@@ -23,6 +26,7 @@ export default function Canvas({ session }) {
   const sessions = useSessions(profile)
   const vrop     = useVropThreads(profile)
   const history  = useHistory()
+  const decks    = useDecks(profile)
 
   const [openCanvasId,   setOpenCanvasId]   = useState(null)
   const [displayName,    setDisplayName]    = useState('')
@@ -34,10 +38,27 @@ export default function Canvas({ session }) {
   const [showNewCanvas,  setShowNewCanvas]  = useState(false)
   const [showSettings,   setShowSettings]   = useState(false)
 
+  // Deck / review
+  const [openDeckCard,   setOpenDeckCard]   = useState(null)  // card tipo deck
+  const [openDeck,       setOpenDeck]       = useState(null)  // deck object
+  const [reviewDeck,     setReviewDeck]     = useState(null)  // { deck, cards }
+
   const boardDeleteRef = useRef(null)
 
   useEffect(() => { if (profile?.name) setDisplayName(profile.name) }, [profile])
   useEffect(() => { document.body.classList.toggle('no-animations', !getAnimationsEnabled()) }, [])
+
+  // Abrir deck cuando se tiene la card
+  useEffect(() => {
+    if (!openDeckCard) { setOpenDeck(null); return }
+    const deckId = openDeckCard.content?.deckId
+    if (!deckId) { setOpenDeck(null); return }
+    // buscar en decks ya cargados
+    const found = decks.decks.find((d) => d.id === deckId)
+    if (found) { setOpenDeck(found); return }
+    // si no está, cargar desde DB
+    decks.getDeckByCardId(openDeckCard.id).then((d) => setOpenDeck(d || null))
+  }, [openDeckCard, decks.decks])
 
   // Cuando se une alguien a la sesión creada, abrir la sesión automáticamente
   const activeSession = sessions.sessions[0]
@@ -50,7 +71,10 @@ export default function Canvas({ session }) {
 
   async function handleCreateCanvas(name) {
     const { data, error } = await addCanvas(name)
-    if (!error) { setShowNewCanvas(false); if (data) { setOpenCanvasId(data.id); history.clear() } }
+    if (!error) {
+      setShowNewCanvas(false)
+      if (data) { setOpenCanvasId(data.id); history.clear() }
+    }
     return { error }
   }
 
@@ -61,8 +85,18 @@ export default function Canvas({ session }) {
     if (error) { setNotice('No se pudo eliminar. Intentá de nuevo.'); setTimeout(() => setNotice(''), 4000) }
   }
 
-  function handleOpenCanvas(id) { setOpenCanvasId(id); history.clear() }
-  function handleCloseCanvas()  { setOpenCanvasId(null); history.clear() }
+  function handleOpenCanvas(id)  { setOpenCanvasId(id); history.clear() }
+  function handleCloseCanvas()   { setOpenCanvasId(null); history.clear() }
+
+  function handleOpenDeck(card) {
+    setOpenDeckCard(card)
+  }
+
+  function handleStartReview(deck, cards) {
+    setOpenDeckCard(null)
+    setOpenDeck(null)
+    setReviewDeck({ deck, cards })
+  }
 
   const openCanvas  = canvases.find((c) => c.id === openCanvasId)
   const openSession = sessions.sessions.find((s) => s.id === openSessionId)
@@ -103,7 +137,9 @@ export default function Canvas({ session }) {
           <>
             <div className="topbar-left">
               {(openSession || showVinkiEntry) && (
-                <button type="button" className="btn-icon" onClick={() => { setOpenSessionId(null); setShowVinkiEntry(false) }} aria-label="Volver">
+                <button type="button" className="btn-icon"
+                  onClick={() => { setOpenSessionId(null); setShowVinkiEntry(false) }}
+                  aria-label="Volver">
                   <IconBack size={20} />
                 </button>
               )}
@@ -143,10 +179,11 @@ export default function Canvas({ session }) {
         <>
           <CanvasBoard
             canvasId={openCanvas.id}
-            emptyLabel={`${openCanvas.name} está vacío. Tocá + para agregar tu primera nota o link.`}
+            emptyLabel={`${openCanvas.name} está vacío. Tocá + para agregar tu primera tarjeta.`}
             history={history}
+            profile={profile}
+            onOpenDeck={handleOpenDeck}
           />
-          {/* Trigger oculto para DeleteMode desde CanvasTopBar */}
           <div ref={boardDeleteRef} style={{ display: 'none' }} />
         </>
       ) : showVinkiEntry ? (
@@ -193,6 +230,27 @@ export default function Canvas({ session }) {
         <VropThreadView thread={openVropThread} profile={profile}
           onBack={() => setOpenVropThread(null)}
           onClose={() => { setOpenVropThread(null); setShowVropPanel(false) }} />
+      )}
+      {openDeckCard && (
+        <DeckEditPanel
+          card={openDeckCard}
+          deck={openDeck}
+          onUpdate={async (cardId, patch) => {
+            // actualizar título del card y del deck
+            if (patch.title && openDeck) {
+              await supabase.from('decks').update({ title: patch.title }).eq('id', openDeck.id)
+            }
+          }}
+          onClose={() => { setOpenDeckCard(null); setOpenDeck(null) }}
+          onStartReview={handleStartReview}
+        />
+      )}
+      {reviewDeck && (
+        <ReviewSession
+          deck={reviewDeck.deck}
+          initialCards={reviewDeck.cards}
+          onClose={() => { setReviewDeck(null); decks.reload() }}
+        />
       )}
     </div>
   )
