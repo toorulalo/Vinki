@@ -5,9 +5,7 @@ import ImageCard from '../cards/ImageCard'
 import PdfCard from '../cards/PdfCard'
 import TimerCard from '../cards/TimerCard'
 import DeckCard from '../cards/DeckCard'
-import SelectionToolbar from './SelectionToolbar'
 
-const DOUBLE_TAP_MS  = 300
 const LONG_PRESS_MS  = 500
 const MOVE_THRESHOLD = 6
 const MIN_W = 160
@@ -35,9 +33,6 @@ const TYPE_ICON_EMOJI = {
 
 export default function CardNode({
   card,
-  isFocused,
-  onFocus,
-  onBlur,
   onEdit,
   onMove: onMoveProp,
   onResize,
@@ -45,7 +40,7 @@ export default function CardNode({
   viewScale = 1,
 }) {
   const nodeRef        = useRef(null)
-  const lastTapRef     = useRef(0)
+  const isDragging     = useRef(false)
   const longPressTimer = useRef(null)
   const [isMoving, setIsMoving]   = useState(false)
   const [localPos, setLocalPos]   = useState({ x: card.x, y: card.y })
@@ -59,10 +54,10 @@ export default function CardNode({
 
   // Sync local pos when card prop changes (e.g., remote update)
   useEffect(() => {
-    if (!isMoving) {
+    if (!isDragging.current) {
       setLocalPos({ x: card.x, y: card.y })
     }
-  }, [card.x, card.y, isMoving])
+  }, [card.x, card.y])
 
   const handlePointerDown = useCallback((e) => {
     // Ignore if interacting with resize handle or interactive children
@@ -75,10 +70,10 @@ export default function CardNode({
     const origX   = card.x
     const origY   = card.y
     let moved     = false
-    let dragging  = false
 
     // Long press → drag mode
     longPressTimer.current = setTimeout(() => {
+      isDragging.current = true
       setIsMoving(true)
       el?.setPointerCapture?.(e.pointerId)
     }, LONG_PRESS_MS)
@@ -92,16 +87,11 @@ export default function CardNode({
         clearTimeout(longPressTimer.current)
       }
 
-      // Only drag if long press activated
-      setIsMoving((currently) => {
-        if (currently) {
-          dragging = true
-          const nx = origX + dx
-          const ny = origY + dy
-          setLocalPos({ x: nx, y: ny })
-        }
-        return currently
-      })
+      if (isDragging.current) {
+        const nx = origX + dx
+        const ny = origY + dy
+        setLocalPos({ x: nx, y: ny })
+      }
     }
 
     function onUp(ev) {
@@ -109,34 +99,23 @@ export default function CardNode({
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
 
-      setIsMoving((currently) => {
-        if (currently && dragging) {
-          const dx = (ev.clientX - startX) / viewScale
-          const dy = (ev.clientY - startY) / viewScale
-          const nx = origX + dx
-          const ny = origY + dy
-          onMoveProp(nx, ny)
-        }
-        return false
-      })
-
-      if (!moved && !dragging) {
-        // Tap logic
-        const now = Date.now()
-        if (now - lastTapRef.current < DOUBLE_TAP_MS) {
-          lastTapRef.current = 0
-          onEdit()
-        } else {
-          lastTapRef.current = now
-          if (!isFocused) onFocus()
-          else onBlur()
-        }
+      if (isDragging.current) {
+        const dx = (ev.clientX - startX) / viewScale
+        const dy = (ev.clientY - startY) / viewScale
+        const nx = origX + dx
+        const ny = origY + dy
+        onMoveProp(nx, ny)
+        isDragging.current = false
+        setIsMoving(false)
+      } else if (!moved) {
+        // Single tap = edit
+        onEdit()
       }
     }
 
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
-  }, [card.x, card.y, isFocused, onFocus, onBlur, onEdit, onMoveProp, viewScale])
+  }, [card.x, card.y, onEdit, onMoveProp, viewScale])
 
   // Resize handle logic
   const handleResizeDown = useCallback((e) => {
@@ -173,7 +152,6 @@ export default function CardNode({
   const classes = [
     'card-node',
     `card-type-${card.type}`,
-    isFocused  ? 'is-focused' : '',
     isMoving   ? 'is-moving'  : '',
     popped     ? 'card-pop'   : '',
   ].filter(Boolean).join(' ')
@@ -183,7 +161,7 @@ export default function CardNode({
     top:    localPos.y,
     width:  card.width  || 260,
     height: card.height || 180,
-    zIndex: isMoving ? 50 : isFocused ? 10 : 1,
+    zIndex: isMoving ? 50 : 1,
   }
 
   function renderPreview() {
@@ -200,47 +178,36 @@ export default function CardNode({
   }
 
   return (
-    <>
-      {isFocused && (
-        <SelectionToolbar
-          card={card}
-          onEdit={onEdit}
-          onDelete={onRemove}
-          onClose={onBlur}
-        />
-      )}
-
-      <div
-        ref={nodeRef}
-        className={classes}
-        style={style}
-        onPointerDown={handlePointerDown}
-      >
-        <div className="card-header">
-          <span className="card-type-label">
-            <span style={{ fontSize: '0.8rem' }}>{TYPE_ICON_EMOJI[card.type]}</span>
-            {TYPE_LABEL[card.type] || card.type}
-          </span>
-        </div>
-
-        <div className="card-body">
-          {card.title && (
-            <div className="card-title">{card.title}</div>
-          )}
-          {renderPreview()}
-        </div>
-
-        {/* Resize handle */}
-        <div
-          className="card-resize-handle"
-          onPointerDown={handleResizeDown}
-          title="Redimensionar"
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-            <path d="M8 2L2 8M5 2L2 5M8 5L5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-          </svg>
-        </div>
+    <div
+      ref={nodeRef}
+      className={classes}
+      style={style}
+      onPointerDown={handlePointerDown}
+    >
+      <div className="card-header">
+        <span className="card-type-label">
+          <span style={{ fontSize: '0.8rem' }}>{TYPE_ICON_EMOJI[card.type]}</span>
+          {TYPE_LABEL[card.type] || card.type}
+        </span>
       </div>
-    </>
+
+      <div className="card-body">
+        {card.title && (
+          <div className="card-title">{card.title}</div>
+        )}
+        {renderPreview()}
+      </div>
+
+      {/* Resize handle */}
+      <div
+        className="card-resize-handle"
+        onPointerDown={handleResizeDown}
+        title="Redimensionar"
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+          <path d="M8 2L2 8M5 2L2 5M8 5L5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+        </svg>
+      </div>
+    </div>
   )
 }

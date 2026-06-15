@@ -2,7 +2,6 @@ import { useRef, useState } from 'react'
 import { useViewport, useViewportWheelBinding } from '../../lib/useViewport'
 import CardNode from './CardNode'
 import AddBlockMenu from './AddBlockMenu'
-import CanvasMinimap from './CanvasMinimap'
 import CardEditPanel from './CardEditPanel'
 
 export default function CanvasBoard({
@@ -27,7 +26,6 @@ export default function CanvasBoard({
   } = useViewport(containerRef)
   useViewportWheelBinding(containerRef, onWheel)
 
-  const [focusedId, setFocusedId] = useState(null)
   const [editingId, setEditingId] = useState(null)
 
   async function handleAddCard(type) {
@@ -41,14 +39,6 @@ export default function CanvasBoard({
       setEditingId(data.id)
       centerOn(data.x + (data.width || 260) / 2, data.y + (data.height || 180) / 2, view.scale)
     }
-  }
-
-  function handleBoardPointerDown(e) {
-    // Deselect card focus when clicking on empty canvas
-    if (!e.target.closest('.card-node')) {
-      setFocusedId(null)
-    }
-    onPointerDown(e)
   }
 
   const worldStyle = {
@@ -78,7 +68,7 @@ export default function CanvasBoard({
         ref={containerRef}
         className="canvas-board"
         style={boardStyle}
-        onPointerDown={handleBoardPointerDown}
+        onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
@@ -88,10 +78,7 @@ export default function CanvasBoard({
             <CardNode
               key={card.id}
               card={card}
-              isFocused={focusedId === card.id}
-              onFocus={() => setFocusedId(card.id)}
-              onBlur={() => setFocusedId(null)}
-              onEdit={() => { setEditingId(card.id); setFocusedId(null) }}
+              onEdit={() => setEditingId(card.id)}
               onMove={(x, y) => onUpdateCard(card.id, { x, y })}
               onResize={(w, h) => onUpdateCard(card.id, { width: w, height: h })}
               onRemove={() => onRemoveCard(card.id)}
@@ -109,13 +96,6 @@ export default function CanvasBoard({
       </div>
 
       <AddBlockMenu onAdd={handleAddCard} />
-
-      <CanvasMinimap
-        cards={cards}
-        view={view}
-        containerRef={containerRef}
-        onNavigate={(wx, wy) => centerOn(wx, wy, view.scale)}
-      />
 
       {editingId && editingCard && (
         <>
