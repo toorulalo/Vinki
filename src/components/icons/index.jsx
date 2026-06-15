@@ -1,8 +1,7 @@
 /**
  * VINKI — Set de íconos SVG propios
- * Estilo: trazo redondeado grueso (strokeWidth 2–2.2), strokeLinecap/join round
- * Color: heredan currentColor — se controlan desde el padre con CSS
- * Tamaño por defecto: 22×22 (sobrescribible con className o style)
+ * Estilo: trazo redondeado grueso, strokeLinecap/join round
+ * Color: heredan currentColor
  */
 
 const BASE = {
@@ -17,15 +16,7 @@ const BASE = {
 
 function Icon({ children, size = 22, className = '', style = {}, ...rest }) {
   return (
-    <svg
-      {...BASE}
-      width={size}
-      height={size}
-      className={className}
-      style={style}
-      aria-hidden="true"
-      {...rest}
-    >
+    <svg {...BASE} width={size} height={size} className={className} style={style} aria-hidden="true" {...rest}>
       {children}
     </svg>
   )
@@ -34,11 +25,7 @@ function Icon({ children, size = 22, className = '', style = {}, ...rest }) {
 /* ---- Navegación ---- */
 
 export function IconBack(p) {
-  return (
-    <Icon {...p}>
-      <polyline points="15 18 9 12 15 6" />
-    </Icon>
-  )
+  return <Icon {...p}><polyline points="15 18 9 12 15 6" /></Icon>
 }
 
 export function IconSettings(p) {
@@ -69,7 +56,6 @@ export function IconLink(p) {
 }
 
 export function IconVinki(p) {
-  /* Dos "V" superpuestas — marca de la sesión Vinki-Vinki */
   return (
     <Icon {...p}>
       <polyline points="2 4 8 16 12 8" />
@@ -109,7 +95,7 @@ export function IconTrash(p) {
   )
 }
 
-/* ---- Acciones en el lienzo ---- */
+/* ---- Tipos de tarjeta ---- */
 
 export function IconPlus(p) {
   return (
@@ -141,6 +127,39 @@ export function IconLinkCard(p) {
   )
 }
 
+export function IconImage(p) {
+  return (
+    <Icon {...p}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </Icon>
+  )
+}
+
+export function IconPdf(p) {
+  return (
+    <Icon {...p}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <path d="M9 13h1.5a1.5 1.5 0 0 1 0 3H9v-3z" strokeWidth="1.8" />
+      <line x1="13" y1="13" x2="13" y2="16" strokeWidth="1.8" />
+      <path d="M16 13h.5a1.5 1.5 0 0 1 0 3H16v-3z" strokeWidth="1.8" />
+    </Icon>
+  )
+}
+
+export function IconDeck(p) {
+  return (
+    <Icon {...p}>
+      <rect x="2" y="6" width="16" height="12" rx="2" />
+      <path d="M6 6V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-2" />
+      <line x1="7" y1="10" x2="13" y2="10" />
+      <line x1="7" y1="14" x2="11" y2="14" />
+    </Icon>
+  )
+}
+
 export function IconX(p) {
   return (
     <Icon {...p}>
@@ -151,11 +170,7 @@ export function IconX(p) {
 }
 
 export function IconMinimize(p) {
-  return (
-    <Icon {...p}>
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </Icon>
-  )
+  return <Icon {...p}><line x1="5" y1="12" x2="19" y2="12" /></Icon>
 }
 
 export function IconExpand(p) {
@@ -170,11 +185,7 @@ export function IconExpand(p) {
 }
 
 export function IconCheck(p) {
-  return (
-    <Icon {...p}>
-      <polyline points="20 6 9 17 4 12" />
-    </Icon>
-  )
+  return <Icon {...p}><polyline points="20 6 9 17 4 12" /></Icon>
 }
 
 export function IconMove(p) {
@@ -190,10 +201,13 @@ export function IconMove(p) {
   )
 }
 
+export function IconChevronRight(p) {
+  return <Icon {...p}><polyline points="9 18 15 12 9 6" /></Icon>
+}
+
 /* ---- Sesión ---- */
 
 export function IconFace(p) {
-  /* Carita — abre el panel de reacciones */
   return (
     <Icon {...p}>
       <circle cx="12" cy="12" r="10" />
@@ -205,7 +219,6 @@ export function IconFace(p) {
 }
 
 export function IconLogout(p) {
-  /* Salir de cuenta — distinto de salir de sesión Vinki-Vinki */
   return (
     <Icon {...p}>
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -216,7 +229,6 @@ export function IconLogout(p) {
 }
 
 export function IconLeaveSession(p) {
-  /* Salir de Vinki-Vinki — puerta/salida distinta del logout */
   return (
     <Icon {...p}>
       <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
@@ -264,10 +276,9 @@ export function IconMoreVertical(p) {
   )
 }
 
-/* ---- Reacciones propias (SVG, sin emojis) ---- */
+/* ---- Reacciones ---- */
 
 export function IconReactionApprove(p) {
-  /* Pulgar arriba */
   return (
     <Icon {...p}>
       <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
@@ -285,7 +296,6 @@ export function IconReactionHeart(p) {
 }
 
 export function IconReactionCelebrate(p) {
-  /* Estrella de fiesta */
   return (
     <Icon {...p}>
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -294,7 +304,6 @@ export function IconReactionCelebrate(p) {
 }
 
 export function IconReactionHighFive(p) {
-  /* Dos manos */
   return (
     <Icon {...p}>
       <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
@@ -313,16 +322,7 @@ export function IconClose(p) {
   )
 }
 
-export function IconChevronRight(p) {
-  return (
-    <Icon {...p}>
-      <polyline points="9 18 15 12 9 6" />
-    </Icon>
-  )
-}
-
 export function IconCanvas(p) {
-  /* Lienzo — cuadro con esquinas abiertas */
   return (
     <Icon {...p}>
       <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
@@ -343,6 +343,24 @@ export function IconJoin(p) {
   return (
     <Icon {...p}>
       <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+    </Icon>
+  )
+}
+
+export function IconUpload(p) {
+  return (
+    <Icon {...p}>
+      <polyline points="16 16 12 12 8 16" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+    </Icon>
+  )
+}
+
+export function IconStar(p) {
+  return (
+    <Icon {...p}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </Icon>
   )
 }
