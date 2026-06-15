@@ -7,11 +7,11 @@
   position: absolute;
   background: var(--bg-surface);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px var(--border);
   touch-action: none;
   user-select: none;
   cursor: pointer;
-  transition: box-shadow var(--duration-fast) ease;
+  transition: box-shadow var(--duration-fast) ease, transform var(--duration-fast) ease;
   min-width: 160px;
   min-height: 120px;
   overflow: hidden;
@@ -20,7 +20,8 @@
 }
 
 .card-node:hover {
-  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12), 0 0 0 1px var(--border);
 }
 
 .card-node.is-focused {
@@ -29,6 +30,7 @@
 
 .card-node.is-moving {
   opacity: 0.85;
+  transform: scale(1.02) translateY(-4px);
   box-shadow: 0 20px 40px rgba(0,0,0,0.2);
   z-index: 50;
   cursor: grabbing;
@@ -39,13 +41,13 @@
   animation: card-pop var(--duration-slow) var(--ease-spring) both;
 }
 
-/* Type-specific float animations */
-.card-type-note  { animation: float-a 5.0s ease-in-out infinite; }
-.card-type-link  { animation: float-b 6.5s ease-in-out infinite; }
-.card-type-image { animation: float-a 7.0s ease-in-out infinite; }
-.card-type-pdf   { animation: float-b 5.5s ease-in-out infinite; }
-.card-type-timer { animation: float-a 4.5s ease-in-out infinite; }
-.card-type-deck  { animation: float-b 8.0s ease-in-out infinite; }
+/* Type-specific left border accents */
+.card-type-note.card-node  { border-left: 3px solid var(--color-gold); }
+.card-type-link.card-node  { border-left: 3px solid var(--color-teal); }
+.card-type-image.card-node { border-left: 3px solid var(--color-teal); }
+.card-type-pdf.card-node   { border-left: 3px solid var(--color-primary); }
+.card-type-timer.card-node { border-left: 3px solid var(--color-accent); }
+.card-type-deck.card-node  { border-left: 3px solid var(--color-accent); }
 
 .card-node.is-focused,
 .card-node.is-moving { animation: none !important; }
