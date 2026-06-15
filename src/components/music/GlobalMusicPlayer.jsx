@@ -5,7 +5,7 @@ import { getYoutubeId } from '../../lib/linkPreview'
 export default function GlobalMusicPlayer() {
   const { url, setUrl, isPlaying, setIsPlaying, volume, setVolume } = useMusicPlayer()
   const [inputValue, setInputValue] = useState('')
-  const [expanded, setExpanded] = useState(false)
+  const [open, setOpen] = useState(false)
   const iframeRef = useRef(null)
 
   const ytId = getYoutubeId(url)
@@ -21,7 +21,6 @@ export default function GlobalMusicPlayer() {
     const id = getYoutubeId(val)
     if (id) {
       setUrl(val)
-      setIsPlaying(true)
     } else if (!val) {
       setUrl('')
       setIsPlaying(false)
@@ -36,7 +35,6 @@ export default function GlobalMusicPlayer() {
       const id = getYoutubeId(val)
       if (id) {
         setUrl(val)
-        setIsPlaying(true)
       }
     }, 0)
   }
@@ -60,93 +58,126 @@ export default function GlobalMusicPlayer() {
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: expanded ? 64 : 48,
-        background: 'var(--bg-surface)',
-        borderTop: '1px solid var(--border)',
-        zIndex: 40,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '0 12px',
-        transition: 'height 0.2s ease',
-        boxShadow: 'var(--shadow-md)',
-      }}
-      className="music-player-bar"
-    >
-      {/* Music icon + label */}
-      <span
-        style={{ fontSize: 18, flexShrink: 0, cursor: 'pointer', userSelect: 'none' }}
-        onClick={() => setExpanded(e => !e)}
-        title="Música"
-      >
-        🎵
-      </span>
-
-      {/* URL input */}
-      <input
-        type="text"
-        placeholder="URL de YouTube..."
-        value={inputValue}
-        onChange={handleInputChange}
-        onPaste={handleInputPaste}
-        style={{
-          flex: 1,
-          background: 'var(--bg-surface-2)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-md)',
-          padding: '5px 10px',
-          fontSize: 'var(--text-xs)',
-          color: 'var(--text-primary)',
-          outline: 'none',
-          minWidth: 0,
-        }}
-        aria-label="URL de YouTube"
-      />
-
-      {/* Clear button — only when URL is set */}
-      {url && (
+    <>
+      {/* Collapsed pill button — always visible */}
+      {!open && (
         <button
           type="button"
-          className="btn btn-ghost btn-sm btn-icon"
-          onClick={handleClear}
-          aria-label="Limpiar"
-          style={{ flexShrink: 0, fontSize: 14 }}
+          onClick={() => setOpen(true)}
+          title="Abrir reproductor de música"
+          style={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: 40,
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-md)',
+            fontSize: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+          aria-label="Abrir reproductor de música"
         >
-          ✕
+          🎵
         </button>
       )}
 
-      {/* Play/Pause toggle */}
-      <button
-        type="button"
-        className="btn btn-ghost btn-sm btn-icon"
-        onClick={togglePlay}
-        disabled={!ytId}
-        aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
-        style={{ flexShrink: 0, fontSize: 16, opacity: ytId ? 1 : 0.4 }}
-      >
-        {isPlaying ? '⏸' : '▶️'}
-      </button>
+      {/* Expanded player panel */}
+      {open && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: 40,
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-md)',
+            padding: '10px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            minWidth: 280,
+          }}
+          className="music-player-bar"
+        >
+          {/* Music icon — click to collapse */}
+          <span
+            style={{ fontSize: 18, flexShrink: 0, cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => setOpen(false)}
+            title="Cerrar reproductor"
+          >
+            🎵
+          </span>
 
-      {/* Volume slider */}
-      <input
-        type="range"
-        min={0}
-        max={1}
-        step={0.05}
-        value={volume}
-        onChange={e => setVolume(parseFloat(e.target.value))}
-        aria-label="Volumen"
-        style={{ width: 64, flexShrink: 0, accentColor: 'var(--color-primary)', cursor: 'pointer' }}
-      />
+          {/* URL input */}
+          <input
+            type="text"
+            placeholder="URL de YouTube..."
+            value={inputValue}
+            onChange={handleInputChange}
+            onPaste={handleInputPaste}
+            style={{
+              flex: 1,
+              background: 'var(--bg-surface-2)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '5px 10px',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-primary)',
+              outline: 'none',
+              minWidth: 0,
+            }}
+            aria-label="URL de YouTube"
+          />
 
-      {/* Hidden YouTube iframe — always mounted when URL is set so audio continues */}
+          {/* Clear button — only when URL is set */}
+          {url && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-icon"
+              onClick={handleClear}
+              aria-label="Limpiar"
+              style={{ flexShrink: 0, fontSize: 14 }}
+            >
+              ✕
+            </button>
+          )}
+
+          {/* Play/Pause toggle */}
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm btn-icon"
+            onClick={togglePlay}
+            disabled={!ytId}
+            aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
+            style={{ flexShrink: 0, fontSize: 16, opacity: ytId ? 1 : 0.4 }}
+          >
+            {isPlaying ? '⏸' : '▶️'}
+          </button>
+
+          {/* Volume slider */}
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={volume}
+            onChange={e => setVolume(parseFloat(e.target.value))}
+            aria-label="Volumen"
+            style={{ width: 64, flexShrink: 0, accentColor: 'var(--color-primary)', cursor: 'pointer' }}
+          />
+        </div>
+      )}
+
+      {/* Hidden YouTube iframe — only mounted when a URL is set */}
       {ytId && (
         <iframe
           ref={iframeRef}
@@ -167,6 +198,6 @@ export default function GlobalMusicPlayer() {
           }}
         />
       )}
-    </div>
+    </>
   )
 }

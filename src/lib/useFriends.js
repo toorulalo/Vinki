@@ -59,7 +59,7 @@ export function useFriends(profile) {
     const { data: target, error: searchError } = await supabase
       .from('profiles')
       .select('id, username, display_name, avatar_color')
-      .eq('username', username.trim())
+      .ilike('username', username.trim())
       .maybeSingle()
 
     if (searchError) return { error: searchError }
