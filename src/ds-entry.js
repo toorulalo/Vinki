@@ -1,0 +1,32 @@
+// Design-sync entry — explicit named re-exports of all active Vinki components.
+// Not part of the app; used only by the design-sync converter.
+export { default as Avatar } from './components/ui/Avatar.jsx';
+export { default as Modal } from './components/ui/Modal.jsx';
+export { ToastProvider, useToast } from './components/ui/Toast.jsx';
+export { default as SettingsPanel } from './components/ui/SettingsPanel.jsx';
+export { default as NoteCard } from './components/cards/NoteCard.jsx';
+export { default as LinkCard } from './components/cards/LinkCard.jsx';
+export { default as ImageCard } from './components/cards/ImageCard.jsx';
+export { default as DeckCard } from './components/cards/DeckCard.jsx';
+export { default as TimerCard } from './components/cards/TimerCard.jsx';
+export { default as PdfCard } from './components/cards/PdfCard.jsx';
+export { default as CanvasCard } from './components/dashboard/CanvasCard.jsx';
+export { default as Dashboard } from './components/dashboard/Dashboard.jsx';
+export { default as FriendsPanel } from './components/dashboard/FriendsPanel.jsx';
+export { default as Login } from './components/auth/Login.jsx';
+export { default as Onboarding } from './components/auth/Onboarding.jsx';
+export { default as AddBlockMenu } from './components/canvas/AddBlockMenu.jsx';
+export { default as CanvasMinimap } from './components/canvas/CanvasMinimap.jsx';
+export { default as CardNode } from './components/canvas/CardNode.jsx';
+export { default as CardEditPanel } from './components/canvas/CardEditPanel.jsx';
+export { default as SelectionToolbar } from './components/canvas/SelectionToolbar.jsx';
+export { default as GlobalMusicPlayer } from './components/music/GlobalMusicPlayer.jsx';
+export { default as PresenceBar } from './components/session/PresenceBar.jsx';
+export { default as ReactionBubble } from './components/session/ReactionBubble.jsx';
+export { default as SessionEntrance } from './components/session/SessionEntrance.jsx';
+export { default as SessionInviteModal } from './components/session/SessionInviteModal.jsx';
+export { default as SessionView } from './components/session/SessionView.jsx';
+export { default as WaitingRoomModal } from './components/session/WaitingRoomModal.jsx';
+export { default as DeckEditPanel } from './components/decks/DeckEditPanel.jsx';
+export { default as ReviewSession } from './components/decks/ReviewSession.jsx';
+export { ThemeProvider, useTheme } from './contexts/ThemeContext.jsx';
