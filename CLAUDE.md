@@ -25,6 +25,8 @@ profile === null       → <Onboarding /> (creates profile row)
 else                   → <Canvas /> (main app)
 ```
 
+App.jsx wraps everything with `MusicPlayerProvider` and `ToastProvider`. `ThemeProvider` (light/dark mode, persisted to localStorage, toggled via `data-theme` attribute) lives in `main.jsx`.
+
 **Two-view layout (pages/Canvas.jsx):**
 - `activeCanvasId === null` → `<Dashboard>` (canvas list + friends + session panel)
 - `activeCanvasId !== null` → `<CanvasBoard>` (infinite pan/zoom canvas)
@@ -36,12 +38,15 @@ else                   → <Canvas /> (main app)
 |------|---------|
 | `useSession` | Supabase auth state |
 | `useProfile` | `profiles` row for current user |
-| `useCanvases` | User's canvases (max 5 implied by UI) |
-| `useCards` | Cards for active canvas + Realtime subscription |
+| `useCanvases` | User's canvases (hard limit: `MAX_CANVASES = 5`) |
+| `useCards` | Cards for active canvas + Realtime subscription (hard limit: 40 cards) |
 | `useDecks` / `useFlashcards` | Leitner flashcard system |
 | `useFriends` | Friend requests via `friendships` table |
 | `useVinkiSession` / `useSessionPresence` / `useSessionChannel` | Co-study session |
 | `useViewport` | Pan/zoom state for the canvas (no external library) |
+| `useHistory` | Undo/redo stack for canvas operations |
+
+**Utility files in `src/lib/`:** `linkPreview.js` (YouTube ID + domain extraction), `effects.js` (audio chime + confetti), `compressImage.js` (resize before Supabase Storage upload).
 
 **Canvas component tree:**
 ```
@@ -51,13 +56,14 @@ CanvasBoard
     NoteCard / LinkCard / ImageCard / PdfCard / TimerCard / DeckCard
   AddBlockMenu
   CardEditPanel (slide-up panel when a card is tapped)
+  SelectionToolbar (multi-select operations)
 ```
 
 **Card drag pattern — critical:** Never call `setState` inside another `setState` functional updater. Use `useRef` for mutable drag state:
 ```js
 const isDragging = useRef(false)
-// long-press timer sets isDragging.current = true, setIsMoving(true)
-// pointermove reads isDragging.current, calls setLocalPos directly
+// long-press (400ms) sets isDragging.current = true, setIsMoving(true)
+// pointermove checks isDragging.current + 6px move threshold, calls setLocalPos directly
 // pointerup calls onMove prop, then isDragging.current = false, setIsMoving(false)
 ```
 
@@ -80,13 +86,28 @@ RLS policies use a PostgreSQL function `current_vinki_user_id()` to resolve the 
 `src/components/` has two layers — the **legacy** flat components at the top level are unused by the current app. The **active** components are in subfolders:
 
 - `auth/` — Login, Onboarding
-- `canvas/` — CanvasBoard, CardNode, CardEditPanel, AddBlockMenu
+- `canvas/` — CanvasBoard, CardNode, CardEditPanel, AddBlockMenu, SelectionToolbar
 - `cards/` — NoteCard, LinkCard, ImageCard, PdfCard, TimerCard, DeckCard
 - `dashboard/` — Dashboard, CanvasCard, FriendsPanel
 - `decks/` — DeckEditPanel, ReviewSession
+- `icons/` — SVG icon components (single export file)
 - `music/` — GlobalMusicPlayer (YouTube embed, collapsed pill by default)
-- `session/` — SessionView, SessionEntrance, PresenceBar, ReactionBubble
+- `session/` — SessionView, SessionEntrance, PresenceBar, ReactionBubble, SessionInviteModal, WaitingRoomModal
 - `ui/` — Avatar, Modal, SettingsPanel, Toast
+
+`src/contexts/ThemeContext.jsx` provides light/dark mode. `src/lib/MusicPlayerContext.jsx` provides global music player state.
+
+## Styles
+
+All CSS lives in `src/styles/`. No CSS-in-JS or preprocessor — plain CSS with custom properties.
+
+- `global.css` — design tokens (spacing, color, typography), light/dark theme variables, base component styles
+- `canvas.css` — board layout, world-space transform, dot-grid background
+- `cards.css` — per-card-type styles
+- `session.css` — presence indicators, reactions, session UI
+- `animations.css` — transitions, pop effects, confetti
+
+Design tokens use CSS custom properties: green primary (`#2E7D52`), orange accent (`#E07240`), cream background (`#F5F1EB`). Dark mode overrides via `[data-theme="dark"]`.
 
 ## Deployment
 
