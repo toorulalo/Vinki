@@ -5,7 +5,7 @@
 .board-wrapper {
   position: fixed;
   inset: 0;
-  top: 52px;
+  top: 54px;
   overflow: hidden;
 }
 
@@ -28,6 +28,7 @@
   will-change: transform;
 }
 
+/* ─── Empty hint ─── */
 .canvas-empty-hint {
   position: absolute;
   top: 50%; left: 50%;
@@ -41,16 +42,16 @@
 }
 
 .canvas-empty-hint-icon {
-  font-size: 32px;
-  margin-bottom: 12px;
-  opacity: 0.5;
+  font-size: 36px;
+  margin-bottom: 14px;
+  opacity: 0.45;
+  animation: float-a 3.5s ease-in-out infinite;
 }
 
 /* ─── Add Block FAB ─── */
-
 .canvas-fab {
   position: fixed;
-  bottom: 24px; right: 24px;
+  bottom: 28px; right: 24px;
   z-index: 30;
   display: flex;
   flex-direction: column;
@@ -59,21 +60,22 @@
 }
 
 .fab-btn {
-  width: 56px; height: 56px;
+  width: 58px; height: 58px;
   border-radius: 50%;
   background: var(--color-primary);
   color: var(--text-inverse);
   border: none;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 16px rgba(30,92,58,0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: transform var(--duration-fast) var(--ease-spring),
-              filter var(--duration-fast) ease;
+              box-shadow var(--duration-fast) ease,
+              background var(--duration-fast) ease;
 }
-.fab-btn:hover   { filter: brightness(1.08); }
-.fab-btn:active  { transform: scale(0.92); }
+.fab-btn:hover   { background: var(--color-primary-hover); box-shadow: 0 6px 22px rgba(30,92,58,0.40); }
+.fab-btn:active  { transform: scale(0.91); }
 .fab-btn.is-open { transform: rotate(45deg); }
 
 .fab-menu {
@@ -84,7 +86,7 @@
   box-shadow: var(--shadow-lg);
   animation: card-pop var(--duration-normal) var(--ease-spring);
   transform-origin: bottom right;
-  min-width: 180px;
+  min-width: 186px;
 }
 
 .fab-menu-item {
@@ -105,13 +107,12 @@
   transition: background var(--duration-fast) ease;
 }
 .fab-menu-item:hover { background: var(--bg-surface-2); }
-.fab-menu-item svg   { color: var(--text-muted); flex-shrink: 0; }
+.fab-menu-item svg { color: var(--text-muted); flex-shrink: 0; }
 
 /* ─── Minimap ─── */
-
 .canvas-minimap {
   position: fixed;
-  bottom: 24px; left: 24px;
+  bottom: 28px; left: 24px;
   width: 120px; height: 80px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -120,7 +121,9 @@
   z-index: 20;
   overflow: hidden;
   cursor: pointer;
+  transition: box-shadow var(--duration-fast) ease;
 }
+.canvas-minimap:hover { box-shadow: var(--shadow-md); }
 
 .minimap-viewport {
   position: absolute;
@@ -139,10 +142,9 @@
 }
 
 /* ─── Selection toolbar ─── */
-
 .selection-toolbar {
   position: fixed;
-  top: 62px;
+  top: 64px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 35;
@@ -175,5 +177,5 @@
 }
 .selection-toolbar-btn:hover { background: var(--bg-surface-2); }
 .selection-toolbar-btn.danger { color: var(--color-danger); }
-.selection-toolbar-btn.danger:hover { background: rgba(239,68,68,0.08); }
+.selection-toolbar-btn.danger:hover { background: rgba(194,58,58,.08); }
 .selection-toolbar-divider { width: 1px; height: 20px; background: var(--border); }
