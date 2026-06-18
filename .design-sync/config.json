@@ -1,0 +1,53 @@
+{
+  "pkg": "vinki",
+  "libOverrides": {
+    "common.mjs": "add VITE_SUPABASE_* placeholder env vars so supabase client initializes without throwing in IIFE mode"
+  },
+  "globalName": "Vinki",
+  "shape": "package",
+  "cssEntry": "dist-css/styles.css",
+  "runtimeFontPrefixes": ["DM Sans", "Outfit"],
+  "readmeHeader": ".design-sync/conventions.md",
+  "provider": {
+    "component": "ThemeProvider"
+  },
+  "componentSrcMap": {
+    "Avatar": "src/components/ui/Avatar.jsx",
+    "Modal": "src/components/ui/Modal.jsx",
+    "ToastProvider": "src/components/ui/Toast.jsx",
+    "SettingsPanel": "src/components/ui/SettingsPanel.jsx",
+    "NoteCard": "src/components/cards/NoteCard.jsx",
+    "LinkCard": "src/components/cards/LinkCard.jsx",
+    "ImageCard": "src/components/cards/ImageCard.jsx",
+    "DeckCard": "src/components/cards/DeckCard.jsx",
+    "TimerCard": "src/components/cards/TimerCard.jsx",
+    "PdfCard": "src/components/cards/PdfCard.jsx",
+    "CanvasCard": "src/components/dashboard/CanvasCard.jsx",
+    "Dashboard": "src/components/dashboard/Dashboard.jsx",
+    "FriendsPanel": "src/components/dashboard/FriendsPanel.jsx",
+    "Login": "src/components/auth/Login.jsx",
+    "Onboarding": "src/components/auth/Onboarding.jsx",
+    "AddBlockMenu": "src/components/canvas/AddBlockMenu.jsx",
+    "CanvasMinimap": "src/components/canvas/CanvasMinimap.jsx",
+    "CardNode": "src/components/canvas/CardNode.jsx",
+    "CardEditPanel": "src/components/canvas/CardEditPanel.jsx",
+    "SelectionToolbar": "src/components/canvas/SelectionToolbar.jsx",
+    "GlobalMusicPlayer": "src/components/music/GlobalMusicPlayer.jsx",
+    "PresenceBar": "src/components/session/PresenceBar.jsx",
+    "ReactionBubble": "src/components/session/ReactionBubble.jsx",
+    "SessionEntrance": "src/components/session/SessionEntrance.jsx",
+    "SessionInviteModal": "src/components/session/SessionInviteModal.jsx",
+    "SessionView": "src/components/session/SessionView.jsx",
+    "WaitingRoomModal": "src/components/session/WaitingRoomModal.jsx",
+    "DeckEditPanel": "src/components/decks/DeckEditPanel.jsx",
+    "ReviewSession": "src/components/decks/ReviewSession.jsx",
+    "AddCardMenu": null,
+    "CanvasTopBar": null,
+    "CardItem": null,
+    "DeleteMode": null,
+    "NameCanvasDialog": null,
+    "ReactionsBar": null,
+    "Transition": null,
+    "SessionEntry": null
+  }
+}
