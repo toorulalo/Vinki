@@ -7,7 +7,17 @@
   to   { opacity: 1; }
 }
 
+@keyframes vinki-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 @keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vinki-slide-up {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
@@ -94,8 +104,8 @@
 }
 
 @keyframes long-press-ring {
-  from { box-shadow: 0 0 0 0 rgba(46, 125, 82, 0.5); }
-  to   { box-shadow: 0 0 0 8px rgba(46, 125, 82, 0); }
+  from { box-shadow: 0 0 0 0 rgba(79, 201, 125, 0.5); }
+  to   { box-shadow: 0 0 0 8px rgba(79, 201, 125, 0); }
 }
 
 /* ─── Utility animation classes ─── */
