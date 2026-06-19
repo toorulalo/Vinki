@@ -79,7 +79,7 @@
 .card-node.is-focused,
 .card-node.is-moving { animation: none !important; }
 
-/* ─── Card header ─── */
+/* ─── Card header — full colored band per type ─── */
 .card-header {
   display: flex;
   align-items: center;
@@ -171,8 +171,7 @@
 /* Link preview */
 .link-preview { display: flex; flex-direction: column; gap: 6px; }
 .link-preview-thumb {
-  width: 100%;
-  height: 72px;
+  width: 100%; height: 72px;
   object-fit: cover;
   border-radius: var(--radius-sm);
   background: var(--bg-surface-2);
@@ -192,8 +191,7 @@
 
 /* Image preview */
 .image-preview-img {
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   object-fit: cover;
   border-radius: var(--radius-sm);
   display: block;
@@ -234,7 +232,7 @@
   font-size: 1.5rem;
   font-weight: var(--weight-bold);
   color: var(--text-primary);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
 }
 .timer-preview-label { font-size: var(--text-xs); color: var(--text-muted); }
 
@@ -290,7 +288,7 @@
 }
 
 .card-edit-type-icon {
-  width: 32px; height: 32px;
+  width: 34px; height: 34px;
   border-radius: var(--radius-md);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
@@ -380,6 +378,7 @@
   gap: 10px;
   padding: 10px 14px;
   cursor: pointer;
+  transition: background var(--duration-fast) ease;
 }
 .flashcard-row-header:hover { background: var(--bg-surface-3); }
 
@@ -408,12 +407,29 @@
   gap: 10px;
 }
 
-/* ─── Review session ─── */
-.review-card {
-  background: var(--bg-surface-2);
+/* ─── Review session — Duolingo-inspired ─── */
+
+.review-progress-bar {
+  height: 10px;
+  background: var(--bg-surface-3);
+  border-radius: var(--radius-full);
+  overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 28px;
+  margin-bottom: 8px;
+}
+
+.review-progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.review-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 36px 28px;
   min-height: 180px;
   display: flex;
   flex-direction: column;
@@ -421,9 +437,11 @@
   gap: 16px;
   cursor: pointer;
   margin-bottom: 16px;
-  transition: border-color var(--duration-fast) ease;
+  transition: border-color var(--duration-fast) ease,
+              box-shadow var(--duration-fast) ease;
+  box-shadow: var(--shadow-sm);
 }
-.review-card:hover { border-color: var(--color-primary); }
+.review-card:hover { border-color: var(--color-primary); box-shadow: var(--shadow-md); }
 
 .review-front {
   font-family: var(--font-display);
@@ -443,12 +461,13 @@
 }
 
 .review-tap-hint {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--text-muted);
   font-style: italic;
+  text-align: center;
 }
 
-.review-actions { display: flex; gap: 10px; }
+.review-actions { display: flex; gap: 12px; }
 
 .review-btn {
   flex: 1;
@@ -464,16 +483,16 @@
 .review-btn-fail { background: var(--color-danger-soft); color: var(--color-danger); }
 .review-btn-pass { background: var(--color-primary-soft); color: var(--color-primary); }
 
-.review-progress-bar {
-  height: 4px;
-  background: var(--border);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  margin-bottom: 20px;
+.review-btn-fail {
+  background: rgba(194,58,58,.09);
+  color: var(--color-danger);
+  border: 1px solid rgba(194,58,58,.18);
 }
-.review-progress-fill {
-  height: 100%;
-  background: var(--color-primary);
-  border-radius: var(--radius-full);
-  transition: width var(--duration-normal) ease;
+.review-btn-fail:hover { background: rgba(194,58,58,.16); }
+
+.review-btn-pass {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  border: 1px solid rgba(30,92,58,.18);
 }
+.review-btn-pass:hover { background: var(--color-primary); color: var(--text-inverse); }

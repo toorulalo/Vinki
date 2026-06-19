@@ -33,8 +33,14 @@
 }
 
 @keyframes card-pop {
-  from { opacity: 0; transform: scale(0.85); }
+  from { opacity: 0; transform: scale(0.86); }
   to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.8) translateY(8px); }
+  70%  { transform: scale(1.04) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 @keyframes spin {
@@ -47,14 +53,14 @@
 }
 
 @keyframes reaction-burst {
-  0%   { transform: scale(0) translateY(0);   opacity: 1; }
-  60%  { transform: scale(1.4) translateY(-30px); opacity: 1; }
-  100% { transform: scale(1) translateY(-60px); opacity: 0; }
+  0%   { transform: scale(0) translateY(0);        opacity: 1; }
+  60%  { transform: scale(1.4) translateY(-30px);  opacity: 1; }
+  100% { transform: scale(1)   translateY(-60px);  opacity: 0; }
 }
 
 @keyframes float-a {
   0%, 100% { transform: translateY(0)   rotate(-0.3deg); }
-  50%       { transform: translateY(-4px) rotate(0.3deg); }
+  50%       { transform: translateY(-6px) rotate(0.3deg); }
 }
 
 @keyframes float-b {
@@ -77,19 +83,19 @@
 }
 
 @keyframes presence-ping {
-  0%   { transform: scale(1);    opacity: 1; }
+  0%       { transform: scale(1); opacity: 1; }
   75%, 100% { transform: scale(2); opacity: 0; }
 }
 
 @keyframes session-modal-in {
   from { opacity: 0; transform: scale(0.88) translateY(24px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
 }
 
 @keyframes bounce-in {
   0%   { transform: scale(0) rotate(-15deg); opacity: 0; }
   55%  { transform: scale(1.25) rotate(5deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg);  opacity: 1; }
 }
 
 @keyframes wiggle {
@@ -98,9 +104,9 @@
   75%  { transform: rotate(3deg); }
 }
 
-@keyframes slide-down {
-  from { opacity: 0; transform: translateY(-16px); }
-  to   { opacity: 1; transform: translateY(0); }
+@keyframes long-press-ring {
+  from { box-shadow: 0 0 0 0   rgba(30,92,58,0.5); }
+  to   { box-shadow: 0 0 0 8px rgba(30,92,58,0); }
 }
 
 @keyframes long-press-ring {
@@ -110,10 +116,11 @@
 
 /* ─── Utility animation classes ─── */
 
-.fade-in     { animation: fade-in     var(--duration-normal) var(--ease-out) both; }
-.slide-up    { animation: slide-up    var(--duration-normal) var(--ease-out) both; }
-.slide-down  { animation: slide-down  var(--duration-normal) var(--ease-out) both; }
-.card-pop    { animation: card-pop    var(--duration-slow)   var(--ease-spring) both; }
+.fade-in    { animation: fade-in    var(--duration-normal) var(--ease-out) both; }
+.slide-up   { animation: slide-up   var(--duration-normal) var(--ease-out) both; }
+.slide-down { animation: slide-down var(--duration-normal) var(--ease-out) both; }
+.pop-in     { animation: pop-in     var(--duration-slow)   var(--ease-spring) both; }
+.card-pop   { animation: card-pop   var(--duration-slow)   var(--ease-spring) both; }
 
 .world-animate {
   transition: transform var(--duration-slow) var(--ease-out);

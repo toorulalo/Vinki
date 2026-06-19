@@ -1,12 +1,6 @@
 // Props: { canvas, colorIndex, onOpen, onRemove }
 
-const CARD_GRADIENTS = [
-  'linear-gradient(135deg, #2E7D52 0%, #4CAF76 100%)',
-  'linear-gradient(135deg, #E07240 0%, #F0A070 100%)',
-  'linear-gradient(135deg, #3D8FA6 0%, #5EB5CE 100%)',
-  'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)',
-  'linear-gradient(135deg, #F0B429 0%, #FBBF24 100%)',
-]
+const COLOR_CLASSES = ['color-0', 'color-1', 'color-2', 'color-3', 'color-4']
 
 function relativeDate(dateStr) {
   if (!dateStr) return ''
@@ -23,7 +17,7 @@ function relativeDate(dateStr) {
 }
 
 export default function CanvasCard({ canvas, colorIndex = 0, onOpen, onRemove }) {
-  const gradient = CARD_GRADIENTS[colorIndex % CARD_GRADIENTS.length]
+  const colorClass = COLOR_CLASSES[colorIndex % COLOR_CLASSES.length]
 
   function handleRemove(e) {
     e.stopPropagation()
@@ -41,11 +35,8 @@ export default function CanvasCard({ canvas, colorIndex = 0, onOpen, onRemove })
       onKeyDown={e => e.key === 'Enter' && onOpen()}
       style={{ cursor: 'pointer', position: 'relative' }}
     >
-      {/* Preview area */}
-      <div
-        className="canvas-card-preview"
-        style={{ background: gradient, height: 80 }}
-      />
+      {/* Organic patterned preview */}
+      <div className={`canvas-card-preview ${colorClass}`} />
 
       {/* Body */}
       <div className="canvas-card-body">
@@ -55,7 +46,7 @@ export default function CanvasCard({ canvas, colorIndex = 0, onOpen, onRemove })
         </p>
       </div>
 
-      {/* Remove button — appears on hover via CSS */}
+      {/* Remove button — appears on hover */}
       <button
         type="button"
         onClick={handleRemove}
@@ -63,21 +54,21 @@ export default function CanvasCard({ canvas, colorIndex = 0, onOpen, onRemove })
         className="canvas-card-delete-btn"
         style={{
           position: 'absolute',
-          top: 6,
-          right: 6,
-          width: 24,
-          height: 24,
+          top: 7,
+          right: 7,
+          width: 26,
+          height: 26,
           borderRadius: '50%',
-          background: 'rgba(0,0,0,0.35)',
+          background: 'rgba(0,0,0,0.32)',
           border: 'none',
           color: '#fff',
-          fontSize: 14,
+          fontSize: 15,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           opacity: 0,
-          transition: 'opacity 0.15s ease',
+          transition: 'opacity 0.15s ease, transform 0.12s ease',
           padding: 0,
         }}
       >
@@ -86,6 +77,7 @@ export default function CanvasCard({ canvas, colorIndex = 0, onOpen, onRemove })
 
       <style>{`
         .canvas-card:hover .canvas-card-delete-btn { opacity: 1 !important; }
+        .canvas-card-delete-btn:hover { transform: scale(1.12); }
       `}</style>
     </div>
   )
