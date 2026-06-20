@@ -3,3 +3,11 @@ dist
 .env
 .DS_Store
 *.local
+
+# design-sync
+.ds-sync/
+ds-bundle/
+dist-css/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules

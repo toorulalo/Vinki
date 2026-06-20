@@ -7,13 +7,18 @@
   to   { opacity: 1; }
 }
 
+@keyframes vinki-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes slide-down {
-  from { opacity: 0; transform: translateY(-16px); }
+@keyframes vinki-slide-up {
+  from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -104,15 +109,9 @@
   to   { box-shadow: 0 0 0 8px rgba(30,92,58,0); }
 }
 
-@keyframes review-correct {
-  0%   { transform: scale(1); }
-  30%  { transform: scale(1.04); }
-  100% { transform: scale(1); }
-}
-
-@keyframes progress-fill {
-  from { transform: scaleX(0); transform-origin: left; }
-  to   { transform: scaleX(1); }
+@keyframes long-press-ring {
+  from { box-shadow: 0 0 0 0 rgba(79, 201, 125, 0.5); }
+  to   { box-shadow: 0 0 0 8px rgba(79, 201, 125, 0); }
 }
 
 /* ─── Utility animation classes ─── */
