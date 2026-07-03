@@ -1,0 +1,10 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.cxx/
+app/libs/*.aar
+app/src/main/cpp/third_party/
+app/src/main/assets/models/*.tflite
+app/src/main/assets/shaders/compiled/
