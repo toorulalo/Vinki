@@ -4,7 +4,7 @@ import LinkCard from '../cards/LinkCard'
 import ImageCard from '../cards/ImageCard'
 import PdfCard from '../cards/PdfCard'
 import TimerCard from '../cards/TimerCard'
-import DeckCard from '../cards/DeckCard'
+import DeckEditPanel from '../decks/DeckEditPanel'
 
 const TYPE_ICON_EMOJI = {
   note:  '📝',
@@ -57,7 +57,7 @@ export default function CardEditPanel({
       case 'image': return <ImageCard {...props} />
       case 'pdf':   return <PdfCard   {...props} />
       case 'timer': return <TimerCard {...props} />
-      case 'deck':  return <DeckCard  {...props} />
+      case 'deck':  return <DeckEditPanel card={card} onUpdate={onUpdate} profile={profile} />
       default:      return <p style={{ color: 'var(--text-muted)' }}>Tipo desconocido.</p>
     }
   }

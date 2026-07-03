@@ -3,6 +3,9 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 export default function NoteCard({ card, isEditing, onUpdate }) {
   const [text, setText] = useState(card.content?.note || '')
   const debounceRef = useRef(null)
+  const pendingRef = useRef(null) // unsaved value awaiting the debounce
+  const saveRef = useRef(null)
+  saveRef.current = (val) => onUpdate?.({ content: { ...card.content, note: val } })
 
   // Sync if card content changes from outside
   useEffect(() => {
@@ -15,16 +18,19 @@ export default function NoteCard({ card, isEditing, onUpdate }) {
     const val = e.target.value
     setText(val)
     // Debounced save
+    pendingRef.current = val
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      onUpdate?.({ content: { ...card.content, note: val } })
+      pendingRef.current = null
+      saveRef.current(val)
     }, 500)
-  }, [card.content, onUpdate])
+  }, [])
 
-  // Save on unmount
+  // Flush any pending save on unmount (e.g. panel closed mid-debounce)
   useEffect(() => {
     return () => {
       clearTimeout(debounceRef.current)
+      if (pendingRef.current !== null) saveRef.current(pendingRef.current)
     }
   }, [])
 
@@ -38,6 +44,7 @@ export default function NoteCard({ card, isEditing, onUpdate }) {
         onChange={handleChange}
         onBlur={() => {
           clearTimeout(debounceRef.current)
+          pendingRef.current = null
           onUpdate?.({ content: { ...card.content, note: text } })
         }}
       />

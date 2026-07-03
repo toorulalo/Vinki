@@ -1,26 +1,27 @@
 import { useState } from 'react'
-import { useFriends } from '../../lib/useFriends'
 import CanvasCard from './CanvasCard'
 import FriendsPanel from './FriendsPanel'
+import ReviewHub from './ReviewHub'
 import Avatar from '../ui/Avatar'
 
-// Props: { profile, canvases, onOpenCanvas, onAddCanvas, onRemoveCanvas, session, onCreateSession, onJoinSession, onLeaveSession }
 export default function Dashboard({
   profile,
   canvases,
+  loading,
   onOpenCanvas,
   onAddCanvas,
   onRemoveCanvas,
+  onRenameCanvas,
   session,
+  partner,
+  onEnterSession,
   onCreateSession,
-  onJoinSession,
   onLeaveSession,
 }) {
   const [showFriends, setShowFriends] = useState(false)
   const [addingCanvas, setAddingCanvas] = useState(false)
   const [newCanvasTitle, setNewCanvasTitle] = useState('')
   const [addError, setAddError] = useState('')
-  const { friends } = useFriends(profile)
 
   async function handleAddCanvas(e) {
     e.preventDefault()
@@ -51,8 +52,16 @@ export default function Dashboard({
         </p>
         <p className="dashboard-sub">¿Qué vas a estudiar hoy?</p>
 
+        {/* Flashcards due today */}
+        <ReviewHub profile={profile} />
+
         {/* Canvas grid */}
         <p className="dashboard-section-title">Mis lienzos</p>
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
+            <div className="spinner" />
+          </div>
+        ) : (
         <div className="canvas-grid">
           {canvases.map((canvas, i) => (
             <CanvasCard
@@ -61,6 +70,7 @@ export default function Dashboard({
               colorIndex={i}
               onOpen={() => onOpenCanvas(canvas.id)}
               onRemove={() => onRemoveCanvas(canvas.id)}
+              onRename={(title) => onRenameCanvas(canvas.id, title)}
             />
           ))}
 
@@ -114,13 +124,15 @@ export default function Dashboard({
             </form>
           )}
         </div>
+        )}
 
         {/* Vinki-Vinki section */}
         <p className="dashboard-section-title">Vinki-Vinki</p>
 
         {session ? (
           <ActiveSession
-            session={session}
+            partner={partner}
+            onEnter={onEnterSession}
             onLeave={onLeaveSession}
           />
         ) : (
@@ -160,14 +172,14 @@ export default function Dashboard({
           session={session}
           onClose={() => setShowFriends(false)}
           onCreateSession={onCreateSession}
-          onJoinSession={onJoinSession}
         />
       )}
     </>
   )
 }
 
-function ActiveSession({ session, onLeave }) {
+function ActiveSession({ partner, onEnter, onLeave }) {
+  const partnerProfile = partner?.profile
   return (
     <div
       style={{
@@ -192,12 +204,21 @@ function ActiveSession({ session, onLeave }) {
         >
           Vinki-Vinki activo
         </span>
+        {partnerProfile && (
+          <Avatar
+            displayName={partnerProfile.display_name}
+            color={partnerProfile.avatar_color || '#E07240'}
+            size="sm"
+          />
+        )}
       </div>
       <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-        Tienes una sesión activa de estudio compartido.
+        {partnerProfile
+          ? `Estás estudiando con ${partnerProfile.display_name}.`
+          : 'Tienes una sesión activa de estudio compartido.'}
       </p>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" className="btn btn-primary btn-sm" style={{ flex: 1 }}>
+        <button type="button" className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={onEnter}>
           Entrar
         </button>
         <button

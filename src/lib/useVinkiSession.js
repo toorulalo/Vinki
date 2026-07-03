@@ -20,15 +20,17 @@ export function useVinkiSession(profile, onInvite) {
     return () => supabase.removeChannel(ch)
   }, [profile?.id])
 
+  const profileId = profile?.id ?? null
+
   const reload = useCallback(async () => {
-    if (!profile) { setLoading(false); return }
+    if (!profileId) { setLoading(false); return }
     setLoading(true)
 
     try {
       const { data } = await supabase
         .from('session_participants')
         .select('session_id, individual_canvas_id, last_opened_card_id, last_opened_at, joined_at, sessions(*)')
-        .eq('user_id', profile.id)
+        .eq('user_id', profileId)
         .maybeSingle()
 
       if (!data || !data.sessions) {
@@ -41,7 +43,7 @@ export function useVinkiSession(profile, onInvite) {
       const hoursSince = (Date.now() - lastActivity.getTime()) / (1000 * 60 * 60)
 
       if (hoursSince > SESSION_EXPIRY_HOURS) {
-        await leaveSessionById(sess.id, profile.id)
+        await leaveSessionById(sess.id, profileId)
         setSession(null)
         return
       }
@@ -53,7 +55,7 @@ export function useVinkiSession(profile, onInvite) {
     } finally {
       setLoading(false)
     }
-  }, [profile])
+  }, [profileId])
 
   useEffect(() => { reload() }, [reload])
 
@@ -113,12 +115,23 @@ export function useVinkiSession(profile, onInvite) {
       return { error: partError }
     }
 
-    // Broadcast invite to the invited user's personal channel
+    // Broadcast invite to the invited user's personal channel.
+    // Wait for the channel to actually join before sending — subscribe() alone
+    // gives no delivery guarantee. If the invitee is offline the invite is
+    // still recoverable via getPendingInvitations() (sessions.invited_user_id).
     if (invitedUserId) {
+      const inviteChannel = supabase.channel(`vinki-user-${invitedUserId}`)
       try {
-        const inviteChannel = supabase.channel(`vinki-user-${invitedUserId}`)
-        await inviteChannel.subscribe()
-        inviteChannel.send({
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('TIMED_OUT')), 5000)
+          inviteChannel.subscribe((status) => {
+            if (status === 'SUBSCRIBED') { clearTimeout(timer); resolve() }
+            else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              clearTimeout(timer); reject(new Error(status))
+            }
+          })
+        })
+        await inviteChannel.send({
           type: 'broadcast',
           event: 'session_invite',
           payload: {
@@ -128,9 +141,10 @@ export function useVinkiSession(profile, onInvite) {
             hostId: profile.id,
           },
         })
-        supabase.removeChannel(inviteChannel)
       } catch (err) {
         console.warn('No se pudo enviar la invitación por broadcast:', err)
+      } finally {
+        supabase.removeChannel(inviteChannel)
       }
     }
 
@@ -182,6 +196,19 @@ export function useVinkiSession(profile, onInvite) {
     setSession(null)
   }
 
+  // Link (or re-link) my own canvas to the session so my partner can view it.
+  async function setMyCanvas(canvasId) {
+    if (!profile || !session || !canvasId) return
+    const { error } = await supabase
+      .from('session_participants')
+      .update({ individual_canvas_id: canvasId })
+      .eq('session_id', session.id)
+      .eq('user_id', profile.id)
+    if (!error) {
+      setSession((prev) => prev ? { ...prev, my_individual_canvas_id: canvasId } : prev)
+    }
+  }
+
   async function updateActivity() {
     if (!session) return
     const now = new Date().toISOString()
@@ -200,10 +227,12 @@ export function useVinkiSession(profile, onInvite) {
 
   async function getPendingInvitations() {
     if (!profile) return []
+    const since = new Date(Date.now() - SESSION_EXPIRY_HOURS * 60 * 60 * 1000).toISOString()
     const { data } = await supabase
       .from('sessions')
       .select('id, host_id, created_at, profiles!sessions_host_id_fkey(display_name, avatar_color)')
       .eq('invited_user_id', profile.id)
+      .gte('created_at', since)
       .order('created_at', { ascending: false })
       .limit(5)
     return data || []
@@ -215,6 +244,7 @@ export function useVinkiSession(profile, onInvite) {
     createSession,
     joinSession,
     leaveSession,
+    setMyCanvas,
     updateActivity,
     checkExpiry,
     reload,
