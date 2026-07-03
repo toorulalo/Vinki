@@ -171,15 +171,20 @@ segmentación automáticamente:
 
 ### Uso de la app
 
-- **+ Video** → elegir un clip (se añade a la timeline magnética y se
-  previsualiza en bucle).
-- **Chroma key** → activa el recorte HSV en la exportación (para material de
-  pantalla verde).
-- **Exportar** → transcodifica con el motor de 3 hilos (HEVC CBR por hardware)
-  en segundo plano; el resultado aparece en **Galería → Movies/Vinki**.
-- La timeline se arrastra con el dedo (con imantado a las junturas); el
-  S Pen sobre la timeline esculpe curvas de easing (presión = intensidad,
-  inclinación = asimetría in/out) con la curva dibujada en vivo.
+- **+ Video** (repetible) → cada clip se añade a la timeline magnética y se
+  previsualiza en bucle. La exportación renderiza TODA la timeline en un solo
+  MP4 con PTS continuos y **audio incluido** (passthrough AAC sin pérdida).
+- **Subtítulos IA** → extrae el audio, lo transcribe on-device con whisper
+  (lotes de 10s, modelo q8_0 incluido en el APK) y abre un editor: toca
+  cualquier subtítulo para corregirlo; al exportar se **queman** en el video
+  (texto con contorno, compuesto en GPU).
+- **Chroma key** → recorte HSV + de-spill en la exportación (pantalla verde).
+- **Transiciones** → whip-pan con motion blur direccional en cada juntura
+  entre clips (rampa de ±220ms alrededor del corte).
+- **Exportar** → motor de 3 hilos (HEVC CBR por hardware) en segundo plano
+  con notificación; el resultado aparece en **Galería → Movies/Vinki**.
+- La timeline se arrastra con el dedo (imantado a junturas); el S Pen esculpe
+  curvas de easing (presión = intensidad, inclinación = asimetría in/out).
 
 ### Build local (opcional, con PC)
 
@@ -187,7 +192,8 @@ segmentación automáticamente:
   desde `android-video-editor/`.
 - whisper.cpp en `app/src/main/cpp/third_party/whisper.cpp` (si falta, el
   APK compila igual con el ASR deshabilitado). El modelo `ggml-base-q8_0.bin`
-  se coloca en el almacenamiento de la app para activar subtítulos.
+  va en `app/src/main/assets/models/` (el CI lo descarga de Hugging Face;
+  la app lo copia a filesDir en el primer uso).
 - Modelo de segmentación `.tflite` en `app/src/main/assets/models/`
   (`selfie_segmenter.tflite`; si falta, el chroma key funciona solo por color).
 - (Opcional) `glslangValidator`, `spirv-opt`, `spirv-cross` en el PATH del

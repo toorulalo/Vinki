@@ -22,13 +22,14 @@ import kotlin.coroutines.resumeWithException
  *   │ HILO 1        │ ───────────▶│ HILO 2            │ ───────────▶│ HILO 3        │
  *   │ Extractor +   │  (dmabuf,   │ EGL/GLES3         │  (input-    │ Encoder drain │
  *   │ Decoder       │  BufferQ.)  │ OES + transform + │   surface   │ → MediaMuxer  │
- *   │ (c2.exynos)   │             │ shaders           │   encoder)  │ CBR           │
+ *   │ multi-clip    │             │ shaders + subs    │   encoder)  │ CBR + audio   │
  *   └──────────────┘             └──────────────────┘              └──────────────┘
  *          ▲                              │
  *          └── Semaphore(2) contrapresión ┘
  *
- * Ningún píxel toca el heap de la app: decoder → SurfaceTexture (OES) →
- * FBO → input-surface del encoder, todo en memoria gráfica compartida.
+ * Soporta N clips en secuencia (PTS continuos), passthrough de audio AAC,
+ * transiciones whip-pan con motion blur y subtítulos quemados en GPU.
+ * Ningún píxel toca el heap de la app.
  */
 class TranscodeEngine(
     private val context: Context,
@@ -67,39 +68,45 @@ class TranscodeEngine(
         // Recursos que aún no fueron adoptados por un hilo propietario: si el
         // arranque falla a mitad, el catch los libera para no fugar códecs HW
         // (el Exynos tiene un número finito de instancias de MFC).
-        var orphanExtractor: MediaExtractor? = null
         var orphanEncoder: MediaCodec? = null
         var orphanMuxer: MediaMuxer? = null
-        var orphanDecoder: MediaCodec? = null
 
         try {
-            // ---------- Origen ----------
-            val extractor = MediaExtractor()
-            orphanExtractor = extractor
-            val inputUri = config.inputUri
-            if (inputUri != null) {
-                extractor.setDataSource(context, inputUri, null)
-            } else {
-                extractor.setDataSource(
-                    requireNotNull(config.inputPath) { "Se requiere inputPath o inputUri" }
-                )
-            }
-            val trackIndex = selectVideoTrack(extractor)
-                ?: throw IllegalArgumentException("Sin pista de video en la entrada")
-            extractor.selectTrack(trackIndex)
-            val inputFormat = extractor.getTrackFormat(trackIndex)
+            val sources = config.inputs
+            require(sources.isNotEmpty()) { "Sin clips de entrada" }
 
-            val srcWidth = inputFormat.getInteger(MediaFormat.KEY_WIDTH)
-            val srcHeight = inputFormat.getInteger(MediaFormat.KEY_HEIGHT)
-            val rotation = if (inputFormat.containsKey(MediaFormat.KEY_ROTATION)) {
-                inputFormat.getInteger(MediaFormat.KEY_ROTATION)
-            } else 0
-            durationUs = if (inputFormat.containsKey(MediaFormat.KEY_DURATION)) {
-                inputFormat.getLong(MediaFormat.KEY_DURATION)
-            } else 0
+            // ---------- Sondeo del primer clip: dimensiones/rotación ----------
+            val probe = sources.first().openExtractor(context)
+            val srcWidth: Int
+            val srcHeight: Int
+            val rotation: Int
+            val probeDurationUs: Long
+            try {
+                val trackIndex = selectVideoTrack(probe)
+                    ?: throw IllegalArgumentException("El primer clip no tiene pista de video")
+                val fmt = probe.getTrackFormat(trackIndex)
+                srcWidth = fmt.getInteger(MediaFormat.KEY_WIDTH)
+                srcHeight = fmt.getInteger(MediaFormat.KEY_HEIGHT)
+                rotation = if (fmt.containsKey(MediaFormat.KEY_ROTATION)) {
+                    fmt.getInteger(MediaFormat.KEY_ROTATION)
+                } else 0
+                probeDurationUs = if (fmt.containsKey(MediaFormat.KEY_DURATION)) {
+                    fmt.getLong(MediaFormat.KEY_DURATION)
+                } else 0
+            } finally {
+                probe.release()
+            }
+
+            val declaredTotal = sources.sumOf { it.durationUs }
+            durationUs = if (declaredTotal > 0) declaredTotal else probeDurationUs
 
             val outWidth = config.outputWidth ?: srcWidth
             val outHeight = config.outputHeight ?: srcHeight
+
+            // ---------- Audio passthrough (opcional) ----------
+            val audio = if (config.includeAudio) {
+                AudioPassthrough.createOrNull(context, sources)
+            } else null
 
             // ---------- Encoder (HILO 3) — CBR explícito ----------
             val encoderFormat = MediaFormat.createVideoFormat(
@@ -141,6 +148,19 @@ class TranscodeEngine(
             }
             orphanMuxer = muxer
 
+            // ---------- Directivas de render (transiciones + subtítulos) ----------
+            val boundaries = if (sources.size > 1) {
+                sources.dropLast(1)
+                    .runningFold(0L) { acc, s -> acc + s.durationUs }
+                    .drop(1)
+            } else emptyList()
+
+            val directives = RenderDirectives(
+                clipBoundariesUs = boundaries,
+                whipPanTransitions = config.whipPanTransitions,
+                subtitles = config.burnSubtitles.sortedBy { it.startMs }
+            )
+
             // ---------- HILO 2: contexto EGL ----------
             val gl = GlRenderThread(
                 context = context,
@@ -150,6 +170,7 @@ class TranscodeEngine(
                 encoder = encoder,
                 frameSlots = frameSlots,
                 renderedFrames = renderedFrames,
+                directives = directives,
                 onFrameEncodedTick = { /* hook para HUD de progreso en vivo */ },
                 onError = ::failOnce
             )
@@ -158,17 +179,11 @@ class TranscodeEngine(
             val decoderSurface = gl.awaitSurfaceReady()
             configureEffects?.invoke(gl)
 
-            // ---------- HILO 1: decoder sobre el Surface del Hilo 2 ----------
-            val decoder = MediaCodec.createDecoderByType(
-                inputFormat.getString(MediaFormat.KEY_MIME)
-                    ?: throw IllegalArgumentException("Pista sin MIME")
-            )
-            orphanDecoder = decoder
-            decoder.configure(inputFormat, decoderSurface, null, 0)
-
+            // ---------- HILO 1: decodificador multi-clip ----------
             val dec = DecoderThread(
-                extractor = extractor,
-                decoder = decoder,
+                context = context,
+                sources = sources,
+                decoderSurface = decoderSurface,
                 frameSlots = frameSlots,
                 renderedFrames = renderedFrames,
                 onDecoderFinished = { gl.notifyDecoderFinished() },
@@ -176,11 +191,12 @@ class TranscodeEngine(
             )
             decoderThread = dec
 
-            // ---------- HILO 3: drenaje ----------
+            // ---------- HILO 3: drenaje + audio ----------
             val drain = EncoderDrainThread(
                 encoder = encoder,
                 muxer = muxer,
                 orientationDegrees = rotation,
+                audio = audio,
                 onProgress = { pts -> progressUs.set(pts) },
                 onFinished = {
                     if (finished.compareAndSet(false, true)) {
@@ -196,10 +212,8 @@ class TranscodeEngine(
             // en su propio finally: los huérfanos dejan de serlo.
             drain.start()
             dec.start()
-            orphanExtractor = null
             orphanEncoder = null
             orphanMuxer = null
-            orphanDecoder = null
 
             cont.invokeOnCancellation {
                 finished.set(true)
@@ -208,10 +222,8 @@ class TranscodeEngine(
         } catch (t: Throwable) {
             Log.e(TAG, "Fallo arrancando el pipeline", t)
             // Liberar recursos que ningún hilo llegó a adoptar.
-            try { orphanDecoder?.release() } catch (_: Throwable) { }
             try { orphanEncoder?.release() } catch (_: Throwable) { }
             try { orphanMuxer?.release() } catch (_: Throwable) { }
-            try { orphanExtractor?.release() } catch (_: Throwable) { }
             failOnce(t)
         }
     }
@@ -254,18 +266,20 @@ class TranscodeEngine(
 }
 
 data class TranscodeConfig(
-    val inputPath: String? = null,
-    val inputUri: android.net.Uri? = null,
+    val inputs: List<VideoSource>,
     val outputPath: String? = null,
     val outputFd: java.io.FileDescriptor? = null,
     val outputMime: String = "video/hevc",   // c2.exynos.hevc.encoder
     val bitrate: Int = 20_000_000,
     val frameRate: Int = 60,
     val outputWidth: Int? = null,
-    val outputHeight: Int? = null
+    val outputHeight: Int? = null,
+    val whipPanTransitions: Boolean = false,
+    val burnSubtitles: List<BurnSubtitle> = emptyList(),
+    val includeAudio: Boolean = true
 ) {
     init {
-        require(inputPath != null || inputUri != null) { "Se requiere inputPath o inputUri" }
+        require(inputs.isNotEmpty()) { "Se requiere al menos un clip" }
         require(outputPath != null || outputFd != null) { "Se requiere outputPath u outputFd" }
     }
 }

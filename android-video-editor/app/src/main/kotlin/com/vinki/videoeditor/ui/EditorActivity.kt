@@ -1,19 +1,28 @@
 package com.vinki.videoeditor.ui
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
 import android.util.Log
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.VideoView
+import com.vinki.videoeditor.ai.AudioPcmExtractor
+import com.vinki.videoeditor.ai.EditableSubtitle
+import com.vinki.videoeditor.ai.SubtitleEngine
+import com.vinki.videoeditor.ai.SubtitleJson
+import com.vinki.videoeditor.ai.WhisperBridge
+import com.vinki.videoeditor.ai.WhisperModelInstaller
 import com.vinki.videoeditor.export.ExportManager
 import com.vinki.videoeditor.export.ExportProgress
 import com.vinki.videoeditor.timeline.ClipNode
@@ -25,33 +34,38 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
- * Editor mínimo funcional:
+ * Editor completo:
  *
  *   [ Previsualización (VideoView) ]
- *   [ + Video ] [ Chroma key ⭘ ] [ Exportar ]
- *   [ estado ]
+ *   [ + Video ] [ Subtítulos IA ] [ Exportar ]
+ *   [ Chroma ⭘ ] [ Transiciones ⭘ ]  [ estado ]
  *   [ Timeline magnética 90Hz ]
  *
- * Flujo: elegir video (SAF) → aparece en la timeline y se previsualiza →
- * opcional chroma key → Exportar corre el motor de 3 hilos (HEVC CBR en el
- * MFC) en un Worker FGS y el resultado aparece en Galería (Movies/Vinki).
+ * Exportar renderiza TODA la timeline (multi-clip, PTS continuos) con audio,
+ * transiciones whip-pan opcionales y subtítulos quemados si se generaron.
  */
 class EditorActivity : Activity() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var progressJob: Job? = null
+    private var asrJob: Job? = null
 
     private lateinit var timeline: TimelineView
     private lateinit var preview: VideoView
     private lateinit var status: TextView
     private lateinit var exportButton: Button
+    private lateinit var subsButton: Button
 
     private val graph = TimelineGraph()
     private val track = MagneticTrack()
-    private var pickedUri: Uri? = null
     private var chromaEnabled = false
+    private var whipPanEnabled = false
+    private val subtitles = mutableListOf<EditableSubtitle>()
+    private var burnSubtitles = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,27 +101,47 @@ class EditorActivity : Activity() {
             text = "+ Video"
             setOnClickListener { pickVideo() }
         }
-        val chromaSwitch = Switch(this).apply {
-            text = "Chroma key"
-            setOnCheckedChangeListener { _, checked -> chromaEnabled = checked }
+        subsButton = Button(this).apply {
+            text = "Subtítulos IA"
+            setOnClickListener { generateSubtitles() }
         }
         exportButton = Button(this).apply {
             text = "Exportar"
             setOnClickListener { startExport() }
         }
 
-        val controls = LinearLayout(this).apply {
+        val buttonsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(6), dp(12), dp(6))
+            setPadding(dp(12), dp(4), dp(12), 0)
             addView(addButton, LinearLayout.LayoutParams(0, WRAP, 1f))
-            addView(chromaSwitch, LinearLayout.LayoutParams(0, WRAP, 1f))
+            addView(subsButton, LinearLayout.LayoutParams(0, WRAP, 1f))
             addView(exportButton, LinearLayout.LayoutParams(0, WRAP, 1f))
         }
 
+        val chromaSwitch = Switch(this).apply {
+            text = "Chroma key"
+            setOnCheckedChangeListener { _, checked -> chromaEnabled = checked }
+        }
+        val whipSwitch = Switch(this).apply {
+            text = "Transiciones"
+            setOnCheckedChangeListener { _, checked -> whipPanEnabled = checked }
+        }
         status = TextView(this).apply {
             text = "Añade un video para empezar"
-            setPadding(dp(16), dp(4), dp(16), dp(4))
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val togglesRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), 0, dp(16), dp(4))
+            addView(chromaSwitch, LinearLayout.LayoutParams(WRAP, WRAP))
+            addView(whipSwitch, LinearLayout.LayoutParams(WRAP, WRAP).apply {
+                marginStart = dp(16)
+            })
+            addView(status, LinearLayout.LayoutParams(0, WRAP, 1f).apply {
+                marginStart = dp(16)
+            })
         }
 
         timeline = TimelineView(this).apply { track = this@EditorActivity.track }
@@ -116,11 +150,13 @@ class EditorActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.BLACK)
             addView(preview, LinearLayout.LayoutParams(MATCH, 0, 1f))
-            addView(controls, LinearLayout.LayoutParams(MATCH, WRAP))
-            addView(status, LinearLayout.LayoutParams(MATCH, WRAP))
+            addView(buttonsRow, LinearLayout.LayoutParams(MATCH, WRAP))
+            addView(togglesRow, LinearLayout.LayoutParams(MATCH, WRAP))
             addView(timeline, LinearLayout.LayoutParams(MATCH, dp(140)))
         }
     }
+
+    // ------------------------------------------------------------------ clips
 
     private fun pickVideo() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -151,7 +187,7 @@ class EditorActivity : Activity() {
                 uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
         } catch (t: Throwable) {
-            Log.w(TAG, "Permiso persistente no concedido; la exportación inmediata funcionará igual", t)
+            Log.w(TAG, "Permiso persistente no concedido", t)
         }
 
         val durationMs = readDurationMs(uri)
@@ -160,7 +196,6 @@ class EditorActivity : Activity() {
             return
         }
 
-        pickedUri = uri
         track.append(
             ClipNode(
                 id = graph.nextId(),
@@ -173,7 +208,9 @@ class EditorActivity : Activity() {
 
         preview.setVideoURI(uri)
         preview.start()
-        setStatus("Clip añadido (${durationMs / 1000}s). Total: ${track.totalDurationMs / 1000}s")
+        setStatus(
+            "${track.size} clip(s), total ${track.totalDurationMs / 1000}s"
+        )
     }
 
     private fun readDurationMs(uri: Uri): Long {
@@ -192,16 +229,162 @@ class EditorActivity : Activity() {
         }
     }
 
+    // -------------------------------------------------------------- subtítulos
+
+    private fun generateSubtitles() {
+        val clips = track.placed()
+        if (clips.isEmpty()) {
+            setStatus("Añade un video primero")
+            return
+        }
+        if (!WhisperBridge.isAvailable) {
+            setStatus("Este APK se compiló sin el motor de subtítulos")
+            return
+        }
+        if (subtitles.isNotEmpty()) {
+            showSubtitleEditor()
+            return
+        }
+
+        subsButton.isEnabled = false
+        asrJob?.cancel()
+        asrJob = scope.launch {
+            try {
+                setStatus("Preparando modelo de voz…")
+                val modelPath = withContext(Dispatchers.IO) {
+                    WhisperModelInstaller.installedModelOrNull(this@EditorActivity)
+                }
+                if (modelPath == null) {
+                    setStatus("Modelo whisper no incluido en este APK")
+                    return@launch
+                }
+
+                val collected = mutableListOf<EditableSubtitle>()
+                // Transcribe cada clip; los timestamps se desplazan al inicio
+                // del clip en la timeline para que el quemado coincida.
+                withContext(Dispatchers.Default) {
+                    SubtitleEngine(this@EditorActivity, modelPath).use { asr ->
+                        for (placed in clips) {
+                            withContext(Dispatchers.Main) {
+                                setStatus("Extrayendo audio (${collected.size} subt.)…")
+                            }
+                            val pcm = try {
+                                AudioPcmExtractor.extract(
+                                    this@EditorActivity, Uri.parse(placed.clip.sourceUri)
+                                )
+                            } catch (t: Throwable) {
+                                Log.w(TAG, "Clip sin audio transcribible", t)
+                                continue
+                            }
+                            withContext(Dispatchers.Main) { setStatus("Transcribiendo…") }
+                            asr.transcribe(pcm).collect { sub ->
+                                collected += sub.copy(
+                                    startMs = sub.startMs + placed.startMs,
+                                    endMs = sub.endMs + placed.startMs
+                                )
+                                withContext(Dispatchers.Main) {
+                                    setStatus("Transcribiendo… ${collected.size} subtítulos")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                subtitles.clear()
+                subtitles += collected.sortedBy { it.startMs }
+                if (subtitles.isEmpty()) {
+                    setStatus("No se detectó voz en el audio")
+                } else {
+                    burnSubtitles = true
+                    setStatus("${subtitles.size} subtítulos listos (se quemarán al exportar)")
+                    showSubtitleEditor()
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "ASR falló", t)
+                setStatus("Subtítulos fallaron: ${t.message}")
+            } finally {
+                subsButton.isEnabled = true
+            }
+        }
+    }
+
+    /** Lista editable: tocar un subtítulo abre un cuadro para corregir el texto. */
+    private fun showSubtitleEditor() {
+        if (subtitles.isEmpty()) return
+        val labels = subtitles.map {
+            "[${it.startMs / 1000}s→${it.endMs / 1000}s]  ${it.displayText}"
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Subtítulos (${subtitles.size}) — toca para editar")
+            .setItems(labels) { _, index -> editSubtitle(index) }
+            .setPositiveButton(if (burnSubtitles) "Quemar al exportar ✔" else "Quemar al exportar") { _, _ ->
+                burnSubtitles = true
+                setStatus("${subtitles.size} subtítulos se quemarán al exportar")
+            }
+            .setNegativeButton("No quemar") { _, _ ->
+                burnSubtitles = false
+                setStatus("Subtítulos generados pero NO se quemarán")
+            }
+            .setNeutralButton("Descartar todos") { _, _ ->
+                subtitles.clear()
+                burnSubtitles = false
+                setStatus("Subtítulos descartados")
+            }
+            .show()
+    }
+
+    private fun editSubtitle(index: Int) {
+        val sub = subtitles[index]
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            setText(sub.displayText)
+            setSelection(sub.displayText.length)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Editar subtítulo [${sub.startMs / 1000}s]")
+            .setView(input)
+            .setPositiveButton("Guardar") { _, _ ->
+                val newText = input.text?.toString()?.trim().orEmpty()
+                subtitles[index] =
+                    if (newText.isEmpty() || newText == sub.text) sub.copy(editedText = null)
+                    else sub.copy(editedText = newText)
+                showSubtitleEditor()
+            }
+            .setNegativeButton("Cancelar") { _, _ -> showSubtitleEditor() }
+            .show()
+    }
+
+    // ------------------------------------------------------------- exportación
+
     private fun startExport() {
-        val uri = pickedUri
-        if (uri == null) {
+        val clips = track.placed()
+        if (clips.isEmpty()) {
             setStatus("Añade un video primero")
             return
         }
         exportButton.isEnabled = false
         setStatus("Exportando… 0%")
 
-        val workId = ExportManager.enqueue(this, uri.toString(), chromaEnabled)
+        val subsPath: String? = if (burnSubtitles && subtitles.isNotEmpty()) {
+            val f = File(cacheDir, "export_subs.json")
+            try {
+                SubtitleJson.write(f, subtitles)
+                f.absolutePath
+            } catch (t: Throwable) {
+                Log.w(TAG, "No se pudieron serializar subtítulos", t)
+                null
+            }
+        } else null
+
+        val workId = ExportManager.enqueue(
+            context = this,
+            inputUris = clips.map { it.clip.sourceUri },
+            durationsMs = clips.map { it.clip.durationMs },
+            chromaKey = chromaEnabled,
+            whipPan = whipPanEnabled && clips.size > 1,
+            subtitlesJsonPath = subsPath
+        )
         progressJob?.cancel()
         progressJob = scope.launch {
             ExportManager.progress(this@EditorActivity, workId).collect { p ->
@@ -227,6 +410,7 @@ class EditorActivity : Activity() {
 
     override fun onDestroy() {
         progressJob?.cancel()
+        asrJob?.cancel()
         scope.cancel()
         super.onDestroy()
     }

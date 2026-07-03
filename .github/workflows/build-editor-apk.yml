@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,6 +38,11 @@ jobs:
           mkdir -p android-video-editor/app/src/main/assets/models
           curl -fL --retry 3 -o android-video-editor/app/src/main/assets/models/selfie_segmenter.tflite \
             https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite
+
+      - name: Descargar modelo de voz whisper (q8_0)
+        run: |
+          curl -fL --retry 3 -o android-video-editor/app/src/main/assets/models/ggml-base-q8_0.bin \
+            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q8_0.bin
 
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4

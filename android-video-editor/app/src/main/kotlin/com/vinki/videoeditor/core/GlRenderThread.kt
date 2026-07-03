@@ -36,9 +36,13 @@ class GlRenderThread(
     private val encoder: MediaCodec,
     private val frameSlots: java.util.concurrent.Semaphore,
     private val renderedFrames: AtomicLong,
+    private val directives: RenderDirectives = RenderDirectives(),
     private val onFrameEncodedTick: (ptsUs: Long) -> Unit,
     private val onError: (Throwable) -> Unit
 ) : HandlerThread("Vinki-GlRender"), SurfaceTexture.OnFrameAvailableListener {
+
+    // Estado de subtítulos (solo tocado desde el hilo GL).
+    private var activeSubtitleIndex = -1
 
     private var eglCore: EglCore? = null
     private var windowSurface: EGLSurface? = null
@@ -115,6 +119,10 @@ class GlRenderThread(
             // Rotación/crop de hardware del productor: obligatorio.
             st.getTransformMatrix(texMatrix)
 
+            val ptsUs = st.timestamp / 1000L
+            applyWhipPan(pipeline, ptsUs)
+            applySubtitle(pipeline, ptsUs / 1000L)
+
             pipeline.drawFrame(texMatrix)
 
             val ptsNs = st.timestamp
@@ -133,6 +141,84 @@ class GlRenderThread(
             frameSlots.release()
         }
         maybeSignalEos()
+    }
+
+    /**
+     * Transición whip-pan: rampa triangular de motion blur alrededor de cada
+     * juntura de clips. La velocidad pico (0.35 UV) produce una estela de
+     * ~1/3 de pantalla — el look de barrido de las transiciones pro.
+     */
+    private fun applyWhipPan(pipeline: FramePipelineRenderer, ptsUs: Long) {
+        if (!directives.whipPanTransitions || directives.clipBoundariesUs.isEmpty()) return
+        var magnitude = 0f
+        for (boundary in directives.clipBoundariesUs) {
+            val dist = kotlin.math.abs(ptsUs - boundary)
+            if (dist < WHIP_WINDOW_US) {
+                val m = WHIP_PEAK_UV * (1f - dist.toFloat() / WHIP_WINDOW_US)
+                if (m > magnitude) magnitude = m
+            }
+        }
+        pipeline.velocityNdc = floatArrayOf(magnitude, 0f)
+    }
+
+    /**
+     * Subtítulos quemados: cuando cambia el subtítulo activo se rasteriza su
+     * bitmap (texto blanco con contorno) y se sube como textura de overlay.
+     * Costo amortizado: 1 rasterización por subtítulo, no por frame.
+     */
+    private fun applySubtitle(pipeline: FramePipelineRenderer, ptsMs: Long) {
+        val subs = directives.subtitles
+        if (subs.isEmpty()) return
+        var newIndex = -1
+        for (i in subs.indices) {
+            if (ptsMs >= subs[i].startMs && ptsMs <= subs[i].endMs) {
+                newIndex = i
+                break
+            }
+            if (subs[i].startMs > ptsMs) break // ordenados: no seguir buscando
+        }
+        if (newIndex == activeSubtitleIndex) return
+        activeSubtitleIndex = newIndex
+        if (newIndex < 0) {
+            pipeline.setOverlayBitmap(null)
+        } else {
+            pipeline.setOverlayBitmap(buildSubtitleBitmap(subs[newIndex].text))
+        }
+    }
+
+    private fun buildSubtitleBitmap(text: String): android.graphics.Bitmap {
+        val bmpWidth = width
+        val bmpHeight = (height / 6).coerceAtLeast(64)
+        val bitmap = android.graphics.Bitmap.createBitmap(
+            bmpWidth, bmpHeight, android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val canvas = android.graphics.Canvas(bitmap)
+
+        val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            textAlign = android.graphics.Paint.Align.CENTER
+            textSize = height * 0.05f
+        }
+        // Autoajuste: si el texto no cabe, reducir hasta encajar (mín. legible).
+        var measured = fill.measureText(text)
+        val maxWidth = bmpWidth * 0.94f
+        if (measured > maxWidth) {
+            fill.textSize = (fill.textSize * maxWidth / measured)
+                .coerceAtLeast(height * 0.028f)
+            measured = fill.measureText(text)
+        }
+        val stroke = android.graphics.Paint(fill).apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = fill.textSize * 0.14f
+            color = android.graphics.Color.BLACK
+        }
+
+        val x = bmpWidth / 2f
+        val y = bmpHeight * 0.62f
+        canvas.drawText(text, x, y, stroke)
+        canvas.drawText(text, x, y, fill)
+        return bitmap
     }
 
     /** Invocado por el orquestador cuando el Hilo 1 terminó de volcar frames. */
@@ -189,5 +275,7 @@ class GlRenderThread(
     companion object {
         private const val TAG = "GlRenderThread"
         private const val EOS_POLL_MS = 5L
+        private const val WHIP_WINDOW_US = 220_000L // ±220ms alrededor de la juntura
+        private const val WHIP_PEAK_UV = 0.35f
     }
 }

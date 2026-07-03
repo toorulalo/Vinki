@@ -21,12 +21,25 @@ object ExportManager {
 
     private const val UNIQUE_WORK = "vinki-export"
 
-    fun enqueue(context: Context, inputUri: String, chromaKey: Boolean): UUID {
+    fun enqueue(
+        context: Context,
+        inputUris: List<String>,
+        durationsMs: List<Long>,
+        chromaKey: Boolean,
+        whipPan: Boolean,
+        subtitlesJsonPath: String?
+    ): UUID {
+        require(inputUris.isNotEmpty() && inputUris.size == durationsMs.size) {
+            "Clips y duraciones inconsistentes"
+        }
         val request = OneTimeWorkRequestBuilder<ExportWorker>()
             .setInputData(
                 Data.Builder()
-                    .putString(ExportWorker.KEY_INPUT_URI, inputUri)
+                    .putStringArray(ExportWorker.KEY_INPUT_URIS, inputUris.toTypedArray())
+                    .putLongArray(ExportWorker.KEY_DURATIONS_MS, durationsMs.toLongArray())
                     .putBoolean(ExportWorker.KEY_CHROMA_KEY, chromaKey)
+                    .putBoolean(ExportWorker.KEY_WHIP_PAN, whipPan)
+                    .putString(ExportWorker.KEY_SUBS_JSON, subtitlesJsonPath)
                     .build()
             )
             // Expedito: arranca ya; si no hay cuota, cae a Work normal.

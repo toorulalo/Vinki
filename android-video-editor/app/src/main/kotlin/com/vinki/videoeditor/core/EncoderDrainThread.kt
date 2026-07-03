@@ -17,6 +17,7 @@ class EncoderDrainThread(
     private val encoder: MediaCodec,
     private val muxer: MediaMuxer,
     private val orientationDegrees: Int,
+    private val audio: AudioPassthrough?,
     private val onProgress: (ptsUs: Long) -> Unit,
     private val onFinished: () -> Unit,
     private val onError: (Throwable) -> Unit
@@ -25,6 +26,7 @@ class EncoderDrainThread(
     private val running = AtomicBoolean(true)
     private var muxerStarted = false
     private var videoTrackIndex = -1
+    private var audioTrackIndex = -1
 
     fun requestStop() {
         running.set(false)
@@ -43,6 +45,10 @@ class EncoderDrainThread(
                         check(!muxerStarted) { "Formato cambió con el muxer ya arrancado" }
                         val format = encoder.outputFormat
                         videoTrackIndex = muxer.addTrack(format)
+                        // Todas las pistas deben añadirse ANTES de start().
+                        if (audio != null) {
+                            audioTrackIndex = muxer.addTrack(audio.outputFormat)
+                        }
                         // La rotación del contenedor complementa a la matriz de
                         // hardware del Hilo 2: metadatos de orientación del origen.
                         muxer.setOrientationHint(orientationDegrees)
@@ -72,6 +78,16 @@ class EncoderDrainThread(
 
                         if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
                             Log.d(TAG, "EOS del encoder alcanzado")
+                            // Passthrough de audio tras el video: el muxer
+                            // interlava por PTS al finalizar. Si falla, el video
+                            // se entrega igualmente (sin audio) — nunca se pierde.
+                            if (audio != null && audioTrackIndex >= 0) {
+                                try {
+                                    audio.writeAllSamples(muxer, audioTrackIndex)
+                                } catch (t: Throwable) {
+                                    Log.e(TAG, "Passthrough de audio falló", t)
+                                }
+                            }
                             onFinished()
                             return
                         }

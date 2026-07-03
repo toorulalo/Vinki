@@ -13,13 +13,16 @@ import androidx.work.Data
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.vinki.videoeditor.VideoEditorApp
+import com.vinki.videoeditor.ai.SubtitleJson
 import com.vinki.videoeditor.core.ChromaKeyConfig
 import com.vinki.videoeditor.core.TranscodeConfig
 import com.vinki.videoeditor.core.TranscodeEngine
+import com.vinki.videoeditor.core.VideoSource
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -27,14 +30,13 @@ import java.util.Locale
 /**
  * Background Worker de exportación headless.
  *
- * WorkManager + FGS tipo mediaProcessing (Android 15): el sistema concede
- * hasta 6 horas de proceso multimedia sin matar la app aunque el usuario
- * salga de ella.
+ * WorkManager + FGS tipo mediaProcessing (Android 15): hasta 6 horas de
+ * proceso multimedia garantizado aunque el usuario salga de la app.
  *
  * La codificación corre en el motor nativo de 3 hilos (TranscodeEngine):
- * encode físico HEVC/AVC en el MFC del Exynos 1380, en modo CBR, sin
- * binarios externos. El resultado se escribe directamente en MediaStore
- * (Movies/Vinki) vía FileDescriptor — aparece en la Galería al terminar.
+ * encode físico HEVC/AVC en el MFC del Exynos 1380 en CBR, multi-clip con
+ * PTS continuos, audio AAC en passthrough, transiciones whip-pan y
+ * subtítulos quemados en GPU. Salida directa a MediaStore (Movies/Vinki).
  */
 class ExportWorker(
     context: Context,
@@ -42,9 +44,16 @@ class ExportWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val inputUriStr = inputData.getString(KEY_INPUT_URI)
-            ?: return Result.failure(errorData("Falta $KEY_INPUT_URI"))
+        val uris = inputData.getStringArray(KEY_INPUT_URIS)
+            ?: return Result.failure(errorData("Falta $KEY_INPUT_URIS"))
+        val durationsMs = inputData.getLongArray(KEY_DURATIONS_MS)
+            ?: return Result.failure(errorData("Falta $KEY_DURATIONS_MS"))
+        if (uris.isEmpty() || uris.size != durationsMs.size) {
+            return Result.failure(errorData("Entradas inconsistentes"))
+        }
         val chromaKey = inputData.getBoolean(KEY_CHROMA_KEY, false)
+        val whipPan = inputData.getBoolean(KEY_WHIP_PAN, false)
+        val subsPath = inputData.getString(KEY_SUBS_JSON)
 
         try {
             setForeground(createForegroundInfo())
@@ -52,6 +61,11 @@ class ExportWorker(
             // Sin FGS seguimos siendo un Work normal: degradación elegante.
             Log.w(TAG, "No se pudo promover a FGS mediaProcessing", t)
         }
+
+        val sources = uris.mapIndexed { i, u ->
+            VideoSource(uri = Uri.parse(u), durationUs = durationsMs[i] * 1000L)
+        }
+        val subtitles = subsPath?.let { SubtitleJson.readAsBurnList(File(it)) } ?: emptyList()
 
         val resolver = applicationContext.contentResolver
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
@@ -75,8 +89,10 @@ class ExportWorker(
                 val transcoder = TranscodeEngine(
                     applicationContext,
                     TranscodeConfig(
-                        inputUri = Uri.parse(inputUriStr),
-                        outputFd = pfd.fileDescriptor
+                        inputs = sources,
+                        outputFd = pfd.fileDescriptor,
+                        whipPanTransitions = whipPan,
+                        burnSubtitles = subtitles
                     )
                 )
                 engine = transcoder
@@ -152,8 +168,11 @@ class ExportWorker(
         private const val TAG = "ExportWorker"
         private const val NOTIFICATION_ID = 0x0E17
 
-        const val KEY_INPUT_URI = "input_uri"
+        const val KEY_INPUT_URIS = "input_uris"
+        const val KEY_DURATIONS_MS = "durations_ms"
         const val KEY_CHROMA_KEY = "chroma_key"
+        const val KEY_WHIP_PAN = "whip_pan"
+        const val KEY_SUBS_JSON = "subs_json"
         const val KEY_PROGRESS = "progress"
         const val KEY_ERROR = "error"
         const val KEY_OUTPUT_URI = "output_uri"

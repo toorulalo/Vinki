@@ -38,6 +38,9 @@ class FramePipelineRenderer(
     private val motionBlur = GlProgram.fromAssets(
         context, "shaders/fullscreen.vert", "shaders/motion_blur.frag"
     )
+    private val overlay = GlProgram.fromAssets(
+        context, "shaders/overlay.vert", "shaders/overlay.frag"
+    )
 
     // --- Geometría: quad fullscreen (triangle strip) ------------------------
     private val vertexBuffer: FloatBuffer = ByteBuffer
@@ -61,6 +64,12 @@ class FramePipelineRenderer(
     var chromaKeyConfig: ChromaKeyConfig? = null
     var aiMaskEnabled: Boolean = false
     var velocityNdc: FloatArray = floatArrayOf(0f, 0f)
+
+    // --- Overlay de subtítulos ----------------------------------------------
+    private var overlayTextureId = 0
+    private var overlayWidth = 0
+    private var overlayHeight = 0
+    private var overlayActive = false
 
     init {
         oesTextureId = createTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES)
@@ -158,8 +167,56 @@ class FramePipelineRenderer(
         )
 
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+
+        // ---------- Pasada 3 (opcional): overlay de subtítulos ----------
+        if (overlayActive && overlayTextureId != 0) {
+            drawOverlay()
+        }
+
         GLES30.glBindVertexArray(0)
         checkGlError("drawFrame")
+    }
+
+    private fun drawOverlay() {
+        overlay.use()
+        // Franja inferior: ancho completo, alto proporcional al bitmap,
+        // con margen inferior del 4% de la pantalla.
+        val scaleY = overlayHeight.toFloat() / height
+        val offsetY = -1f + 0.04f * 2f + scaleY
+        GLES30.glUniform2f(overlay.uniformLocation("uScale"), 1f, scaleY)
+        GLES30.glUniform2f(overlay.uniformLocation("uOffset"), 0f, offsetY)
+
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, overlayTextureId)
+        GLES30.glUniform1i(overlay.uniformLocation("uTex"), 0)
+
+        // El Bitmap ARGB_8888 llega premultiplicado: blending (1, 1-srcA).
+        GLES30.glEnable(GLES30.GL_BLEND)
+        GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        GLES30.glDisable(GLES30.GL_BLEND)
+    }
+
+    /**
+     * Sube (o retira, con null) el bitmap del subtítulo activo como textura
+     * de overlay. Llamar SOLO desde el hilo GL. El bitmap se recicla aquí.
+     */
+    fun setOverlayBitmap(bitmap: android.graphics.Bitmap?) {
+        assertGlThread()
+        if (bitmap == null) {
+            overlayActive = false
+            return
+        }
+        if (overlayTextureId == 0) {
+            overlayTextureId = createTexture(GLES30.GL_TEXTURE_2D)
+        }
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, overlayTextureId)
+        android.opengl.GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
+        overlayWidth = bitmap.width
+        overlayHeight = bitmap.height
+        overlayActive = true
+        bitmap.recycle()
+        checkGlError("setOverlayBitmap")
     }
 
     /**
@@ -183,8 +240,12 @@ class FramePipelineRenderer(
         oesPassthrough.release()
         oesChromaKey.release()
         motionBlur.release()
+        overlay.release()
         GLES30.glDeleteFramebuffers(1, intArrayOf(fboId), 0)
         GLES30.glDeleteTextures(3, intArrayOf(oesTextureId, fboTextureId, maskTextureId), 0)
+        if (overlayTextureId != 0) {
+            GLES30.glDeleteTextures(1, intArrayOf(overlayTextureId), 0)
+        }
         GLES30.glDeleteBuffers(1, vbo, 0)
         GLES30.glDeleteVertexArrays(1, vao, 0)
     }
