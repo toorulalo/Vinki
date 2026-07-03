@@ -47,6 +47,7 @@ export default function CardNode({
   const localPos     = useRef({ x: card.x, y: card.y })
 
   const [localPosState, setLocalPosState] = useState({ x: card.x, y: card.y })
+  const [localSize, setLocalSize]         = useState(null) // non-null only mid-resize
   const [isMoving, setIsMoving]           = useState(false)
   const [popped,   setPopped]             = useState(true)
 
@@ -135,22 +136,27 @@ export default function CardNode({
     const origW  = card.width  || 260
     const origH  = card.height || 180
 
-    function onResizeMove(ev) {
+    function clampedSize(ev) {
       const dw = (ev.clientX - startX) / viewScale
       const dh = (ev.clientY - startY) / viewScale
-      const nw = Math.min(MAX_W, Math.max(MIN_W, origW + dw))
-      const nh = Math.min(MAX_H, Math.max(MIN_H, origH + dh))
-      onResize(Math.round(nw), Math.round(nh))
+      return {
+        w: Math.round(Math.min(MAX_W, Math.max(MIN_W, origW + dw))),
+        h: Math.round(Math.min(MAX_H, Math.max(MIN_H, origH + dh))),
+      }
+    }
+
+    function onResizeMove(ev) {
+      // Track locally while dragging; commit (DB write) only on release.
+      const { w, h } = clampedSize(ev)
+      setLocalSize({ w, h })
     }
 
     function onResizeUp(ev) {
       window.removeEventListener('pointermove', onResizeMove)
       window.removeEventListener('pointerup', onResizeUp)
-      const dw = (ev.clientX - startX) / viewScale
-      const dh = (ev.clientY - startY) / viewScale
-      const nw = Math.min(MAX_W, Math.max(MIN_W, origW + dw))
-      const nh = Math.min(MAX_H, Math.max(MIN_H, origH + dh))
-      onResize(Math.round(nw), Math.round(nh))
+      const { w, h } = clampedSize(ev)
+      setLocalSize(null)
+      onResize(w, h)
     }
 
     window.addEventListener('pointermove', onResizeMove)
@@ -167,13 +173,13 @@ export default function CardNode({
   const style = {
     left:   localPosState.x,
     top:    localPosState.y,
-    width:  card.width  || 260,
-    height: card.height || 180,
+    width:  localSize?.w ?? (card.width  || 260),
+    height: localSize?.h ?? (card.height || 180),
     zIndex: isMoving ? 50 : 1,
   }
 
   function renderPreview() {
-    const props = { card, isEditing: false }
+    const props = { card, isEditing: false, onOpen: onEdit }
     switch (card.type) {
       case 'note':  return <NoteCard  {...props} />
       case 'link':  return <LinkCard  {...props} />

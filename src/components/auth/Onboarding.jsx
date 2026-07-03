@@ -54,26 +54,40 @@ export default function Onboarding({ session, onComplete }) {
     setError('')
 
     try {
-      // 1. Create profile
-      const { data: profileData, error: profileErr } = await supabase
+      // 1. Create profile — reuse the row if a previous attempt already created
+      // it (e.g. the canvas insert failed and the user is retrying).
+      let profileData
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .insert({
-          auth_id: session.user.id,
-          username: username.trim(),
-          display_name: displayName.trim(),
-          avatar_color: avatarColor,
-        })
-        .select()
-        .single()
+        .select('*')
+        .eq('auth_id', session.user.id)
+        .maybeSingle()
 
-      if (profileErr) {
-        if (profileErr.message?.includes('unique') || profileErr.code === '23505') {
-          setError('Ese nombre de usuario ya está en uso. Elige otro.')
-          setLoading(false)
-          goStep(1)
-          return
+      if (existingProfile) {
+        profileData = existingProfile
+      } else {
+        const { data: inserted, error: profileErr } = await supabase
+          .from('profiles')
+          .insert({
+            auth_id: session.user.id,
+            username: username.trim(),
+            display_name: displayName.trim(),
+            avatar_color: avatarColor,
+          })
+          .select()
+          .single()
+
+        if (profileErr) {
+          if (profileErr.message?.includes('unique') || profileErr.code === '23505') {
+            setLoading(false)
+            goStep(1)
+            // After goStep so its setError('') doesn't erase the message.
+            setError('Ese nombre de usuario ya está en uso. Elige otro.')
+            return
+          }
+          throw profileErr
         }
-        throw profileErr
+        profileData = inserted
       }
 
       // 2. Create first canvas

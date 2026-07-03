@@ -4,9 +4,16 @@ function ctx() {
   return audioCtx
 }
 
+// Call from a user gesture (e.g. pressing "start" on a timer) so the browser's
+// autoplay policy doesn't leave the context suspended when the chime fires later.
+export function unlockAudio() {
+  try { const c = ctx(); if (c.state === 'suspended') c.resume() } catch {}
+}
+
 export function playChime(volume = 1) {
   try {
-    const c = ctx(); const now = c.currentTime
+    const c = ctx(); if (c.state === 'suspended') c.resume()
+    const now = c.currentTime
     ;[880, 1320, 1760].forEach((freq, i) => {
       const osc = c.createOscillator(); const gain = c.createGain()
       osc.type = 'sine'; osc.frequency.value = freq

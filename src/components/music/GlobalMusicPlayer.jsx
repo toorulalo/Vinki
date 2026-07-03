@@ -15,12 +15,34 @@ export default function GlobalMusicPlayer() {
     setInputValue(url)
   }, [url])
 
+  // Control the embedded player via the YouTube iframe API — never remount the
+  // iframe on play/pause (a remount restarts the track from the beginning).
+  function postCommand(func, args = []) {
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: 'command', func, args }),
+      '*'
+    )
+  }
+
+  useEffect(() => {
+    if (ytId) postCommand('setVolume', [Math.round(volume * 100)])
+  }, [volume, ytId])
+
+  function handleIframeLoad() {
+    // Apply current volume/pause state once the player is ready.
+    setTimeout(() => {
+      postCommand('setVolume', [Math.round(volume * 100)])
+      if (!isPlaying) postCommand('pauseVideo')
+    }, 600)
+  }
+
   function handleInputChange(e) {
     const val = e.target.value
     setInputValue(val)
     const id = getYoutubeId(val)
     if (id) {
       setUrl(val)
+      setIsPlaying(true)
     } else if (!val) {
       setUrl('')
       setIsPlaying(false)
@@ -35,13 +57,16 @@ export default function GlobalMusicPlayer() {
       const id = getYoutubeId(val)
       if (id) {
         setUrl(val)
+        setIsPlaying(true)
       }
     }, 0)
   }
 
   function togglePlay() {
     if (!ytId) return
-    setIsPlaying(p => !p)
+    const next = !isPlaying
+    postCommand(next ? 'playVideo' : 'pauseVideo')
+    setIsPlaying(next)
   }
 
   function handleClear() {
@@ -50,11 +75,10 @@ export default function GlobalMusicPlayer() {
     setIsPlaying(false)
   }
 
-  // Build iframe src
+  // Build iframe src — autoplay on mount; play/pause afterwards go through postMessage
   function iframeSrc() {
     if (!ytId) return ''
-    const base = `https://www.youtube.com/embed/${ytId}?enablejsapi=1&loop=1&playlist=${ytId}`
-    return isPlaying ? `${base}&autoplay=1` : base
+    return `https://www.youtube.com/embed/${ytId}?enablejsapi=1&loop=1&playlist=${ytId}&autoplay=1`
   }
 
   return (
@@ -181,7 +205,8 @@ export default function GlobalMusicPlayer() {
       {ytId && (
         <iframe
           ref={iframeRef}
-          key={`${ytId}-${isPlaying}`}
+          key={ytId}
+          onLoad={handleIframeLoad}
           src={iframeSrc()}
           allow="autoplay; encrypted-media"
           allowFullScreen={false}

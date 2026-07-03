@@ -25,19 +25,26 @@ function defaultContent(type) {
 export function useCards(canvasId) {
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    if (!canvasId) return
+    // Clear immediately so switching canvases never shows (editable) stale cards.
+    setCards([])
+    setError(null)
+    if (!canvasId) { setLoading(false); return }
     let active = true
     setLoading(true)
 
     async function load() {
-      const { data } = await supabase
+      const { data, error: loadError } = await supabase
         .from('cards')
         .select('*')
         .eq('canvas_id', canvasId)
         .order('updated_at', { ascending: true })
-      if (active) { setCards(data || []); setLoading(false) }
+      if (!active) return
+      if (loadError) setError(loadError.message || 'No se pudieron cargar las tarjetas.')
+      setCards(data || [])
+      setLoading(false)
     }
     load()
 
@@ -94,20 +101,30 @@ export function useCards(canvasId) {
 
   async function updateCard(id, patch) {
     updateCardLocal(id, patch)
-    await supabase.from('cards')
+    const { error } = await supabase.from('cards')
       .update({ ...patch, updated_at: new Date().toISOString() })
       .eq('id', id)
+    return { error }
   }
 
   async function removeCard(id) {
+    const target = cards.find((c) => c.id === id)
     setCards((prev) => prev.filter((c) => c.id !== id))
-    await supabase.from('cards').delete().eq('id', id)
+    // Deck cards own a decks row (+ its flashcards) — remove them too so they don't orphan.
+    const deckId = target?.type === 'deck' ? target.content?.deckId : null
+    if (deckId) {
+      await supabase.from('flashcards').delete().eq('deck_id', deckId)
+      await supabase.from('decks').delete().eq('id', deckId)
+    }
+    const { error } = await supabase.from('cards').delete().eq('id', id)
+    return { error }
   }
 
   async function removeCards(ids) {
     setCards((prev) => prev.filter((c) => !ids.includes(c.id)))
-    await supabase.from('cards').delete().in('id', ids)
+    const { error } = await supabase.from('cards').delete().in('id', ids)
+    return { error }
   }
 
-  return { cards, loading, addCard, updateCard, updateCardLocal, removeCard, removeCards }
+  return { cards, loading, error, addCard, updateCard, updateCardLocal, removeCard, removeCards }
 }

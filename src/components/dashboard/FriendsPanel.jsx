@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { useFriends } from '../../lib/useFriends'
+import { useToast } from '../ui/Toast'
 import Avatar from '../ui/Avatar'
 
-// Props: { profile, session, onClose, onCreateSession, onJoinSession }
-export default function FriendsPanel({ profile, session, onClose, onCreateSession, onJoinSession }) {
+// Props: { profile, session, onClose, onCreateSession }
+export default function FriendsPanel({ profile, session, onClose, onCreateSession }) {
   const { friends, pending, loading, sendRequest, acceptRequest, removeFriend } = useFriends(profile)
+  const { showToast } = useToast()
   const [usernameInput, setUsernameInput] = useState('')
   const [sendError, setSendError] = useState('')
   const [sendSuccess, setSendSuccess] = useState('')
   const [sending, setSending] = useState(false)
+  const [inviting, setInviting] = useState(false)
 
   async function handleSendRequest(e) {
     e.preventDefault()
@@ -27,15 +30,27 @@ export default function FriendsPanel({ profile, session, onClose, onCreateSessio
   }
 
   async function handleAccept(friendshipId) {
-    await acceptRequest(friendshipId)
+    const result = await acceptRequest(friendshipId)
+    if (result?.error) showToast(result.error.message, 'error')
   }
 
   async function handleInvite(friend) {
+    if (inviting) return
+    setInviting(true)
     const { error } = await onCreateSession(null, friend.profile.id)
+    setInviting(false)
     if (error) {
-      alert(error.message)
+      showToast(error.message, 'error')
+      return
     }
     onClose()
+  }
+
+  async function handleRemoveFriend(friend) {
+    const name = friend.profile?.display_name || 'este amigo'
+    if (!window.confirm(`¿Eliminar a ${name} de tus amigos?`)) return
+    const result = await removeFriend(friend.friendshipId)
+    if (result?.error) showToast(result.error.message, 'error')
   }
 
   return (
@@ -217,11 +232,22 @@ export default function FriendsPanel({ profile, session, onClose, onCreateSessio
                       <button
                         type="button"
                         className="btn btn-secondary btn-sm"
+                        disabled={inviting}
                         onClick={() => handleInvite({ profile: p, friendshipId })}
                       >
-                        Invitar
+                        {inviting ? 'Invitando…' : 'Invitar'}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      className="btn btn-icon"
+                      aria-label={`Eliminar a ${p?.display_name || 'amigo'}`}
+                      title="Eliminar amigo"
+                      onClick={() => handleRemoveFriend({ profile: p, friendshipId })}
+                      style={{ color: 'var(--text-muted)', flexShrink: 0 }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 ))}
               </div>

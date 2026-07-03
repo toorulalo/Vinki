@@ -37,14 +37,13 @@ App.jsx wraps everything with `MusicPlayerProvider` and `ToastProvider`. `ThemeP
 | Hook | Manages |
 |------|---------|
 | `useSession` | Supabase auth state |
-| `useProfile` | `profiles` row for current user |
+| `useProfile` | `profiles` row for current user (keyed on user id, not the session object — token refreshes must not trigger a refetch/remount) |
 | `useCanvases` | User's canvases (hard limit: `MAX_CANVASES = 5`) |
-| `useCards` | Cards for active canvas + Realtime subscription (hard limit: 40 cards) |
+| `useCards` | Cards for active canvas + Realtime subscription (hard limit: 40 cards). Deck cards cascade-delete their `decks`/`flashcards` rows |
 | `useDecks` / `useFlashcards` | Leitner flashcard system |
 | `useFriends` | Friend requests via `friendships` table |
-| `useVinkiSession` / `useSessionPresence` / `useSessionChannel` | Co-study session |
+| `useVinkiSession` / `useSessionPresence` / `useSessionChannel` | Co-study session. Invites broadcast + recoverable from DB (`getPendingInvitations`); `setMyCanvas` keeps my participant row pointing at my open canvas; `updateActivity` pinged every 10 min from Canvas.jsx |
 | `useViewport` | Pan/zoom state for the canvas (no external library) |
-| `useHistory` | Undo/redo stack for canvas operations |
 
 **Utility files in `src/lib/`:** `linkPreview.js` (YouTube ID + domain extraction), `effects.js` (audio chime + confetti), `compressImage.js` (resize before Supabase Storage upload).
 
@@ -52,11 +51,11 @@ App.jsx wraps everything with `MusicPlayerProvider` and `ToastProvider`. `ThemeP
 ```
 CanvasBoard
   useViewport  (pan: 1-finger drag, pinch-zoom, Ctrl+wheel)
-  CardNode[]   (positioned absolutely in world space)
-    NoteCard / LinkCard / ImageCard / PdfCard / TimerCard / DeckCard
+  CardNode[]   (positioned absolutely in world space; drag + resize commit to DB on pointerup only)
+    NoteCard / LinkCard / ImageCard / PdfCard / TimerCard / DeckCard (previews)
   AddBlockMenu
   CardEditPanel (slide-up panel when a card is tapped)
-  SelectionToolbar (multi-select operations)
+    deck cards render decks/DeckEditPanel (flashcard CRUD + ReviewSession)
 ```
 
 **Card drag pattern — critical:** Never call `setState` inside another `setState` functional updater. Use `useRef` for mutable drag state:
@@ -83,17 +82,20 @@ RLS policies use a PostgreSQL function `current_vinki_user_id()` to resolve the 
 
 ## Component organization
 
-`src/components/` has two layers — the **legacy** flat components at the top level are unused by the current app. The **active** components are in subfolders:
+All components live in subfolders of `src/components/` (the old flat legacy layer was deleted):
 
 - `auth/` — Login, Onboarding
-- `canvas/` — CanvasBoard, CardNode, CardEditPanel, AddBlockMenu, SelectionToolbar
-- `cards/` — NoteCard, LinkCard, ImageCard, PdfCard, TimerCard, DeckCard
-- `dashboard/` — Dashboard, CanvasCard, FriendsPanel
-- `decks/` — DeckEditPanel, ReviewSession
+- `canvas/` — CanvasBoard, CardNode, CardEditPanel, AddBlockMenu (+ CanvasMinimap, SelectionToolbar: built but not mounted)
+- `cards/` — NoteCard, LinkCard, ImageCard, PdfCard, TimerCard, DeckCard (canvas previews)
+- `dashboard/` — Dashboard, CanvasCard, FriendsPanel, ReviewHub (flashcards due today, one-tap review)
+- `decks/` — DeckEditPanel, ReviewSession (reached via CardEditPanel for deck cards, and via ReviewHub)
 - `icons/` — SVG icon components (single export file)
-- `music/` — GlobalMusicPlayer (YouTube embed, collapsed pill by default)
-- `session/` — SessionView, SessionEntrance, PresenceBar, ReactionBubble, SessionInviteModal, WaitingRoomModal
-- `ui/` — Avatar, Modal, SettingsPanel, Toast
+- `music/` — GlobalMusicPlayer (YouTube embed, collapsed pill; play/pause/volume via iframe postMessage — never remount the iframe to pause)
+- `session/` — SessionView, PresenceBar, ReactionBubble, SessionInviteModal, WaitingRoomModal (+ SessionEntrance: unmounted)
+- `ui/` — Avatar, Modal, SettingsPanel, Toast (`useToast` is the standard error/success surface — no `alert()`)
+- `ShareCapture.jsx` — handles PWA share_target query params (pick a canvas → saves a link/note card)
+
+`src/ds-entry.js` is a re-export barrel for the design-sync converter only — not part of the app, but keep its imports resolvable.
 
 `src/contexts/ThemeContext.jsx` provides light/dark mode. `src/lib/MusicPlayerContext.jsx` provides global music player state.
 
@@ -117,4 +119,4 @@ Design tokens use CSS custom properties: green primary (`#2E7D52`), orange accen
 
 ## PWA
 
-`vite.config.js` configures `vite-plugin-pwa` with `registerType: 'prompt'` (no silent auto-update). The manifest includes a `share_target` at `/share` for "Send to Vinki" (not yet wired up as a route).
+`vite.config.js` configures `vite-plugin-pwa` with `registerType: 'prompt'` (no silent auto-update). The manifest includes a GET `share_target` on `/` — shared `title/text/url` query params are handled by `src/components/ShareCapture.jsx`.

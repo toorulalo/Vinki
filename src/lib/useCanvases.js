@@ -6,24 +6,30 @@ export const MAX_CANVASES = 5
 export function useCanvases(profile) {
   const [canvases, setCanvases] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const profileId = profile?.id ?? null
 
   useEffect(() => {
     if (profile === undefined) return
-    if (!profile) { setLoading(false); return }
+    if (!profileId) { setLoading(false); return }
     let active = true
     setLoading(true)
+    setError(null)
 
     async function init() {
-      const { data } = await supabase
+      const { data, error: loadError } = await supabase
         .from('canvases')
         .select('*')
-        .eq('owner_id', profile.id)
+        .eq('owner_id', profileId)
         .order('created_at', { ascending: true })
-      if (active) { setCanvases(data || []); setLoading(false) }
+      if (!active) return
+      if (loadError) setError(loadError.message || 'No se pudieron cargar tus lienzos.')
+      setCanvases(data || [])
+      setLoading(false)
     }
     init()
     return () => { active = false }
-  }, [profile])
+  }, [profileId])
 
   async function addCanvas(title) {
     if (canvases.length >= MAX_CANVASES)
@@ -45,7 +51,8 @@ export function useCanvases(profile) {
 
   async function renameCanvas(id, title) {
     setCanvases((prev) => prev.map((c) => (c.id === id ? { ...c, title } : c)))
-    await supabase.from('canvases').update({ title, updated_at: new Date().toISOString() }).eq('id', id)
+    const { error } = await supabase.from('canvases').update({ title, updated_at: new Date().toISOString() }).eq('id', id)
+    return { error }
   }
 
   async function setActiveCanvas(id) {
@@ -54,5 +61,5 @@ export function useCanvases(profile) {
     await supabase.from('canvases').update({ is_active: true, updated_at: new Date().toISOString() }).eq('id', id)
   }
 
-  return { canvases, loading, addCanvas, removeCanvas, renameCanvas, setActiveCanvas }
+  return { canvases, loading, error, addCanvas, removeCanvas, renameCanvas, setActiveCanvas }
 }

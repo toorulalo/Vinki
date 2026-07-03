@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { playChime } from '../../lib/effects'
+import { playChime, unlockAudio } from '../../lib/effects'
 
 const DEFAULT_DURATION = 25 * 60 // 25 minutes in seconds
 
@@ -84,6 +84,7 @@ export default function TimerCard({ card, isEditing, onUpdate }) {
   }, [running])
 
   function togglePlay() {
+    unlockAudio() // user gesture — lets the completion chime play later
     if (remaining === 0) {
       // Reset and start
       setRemaining(duration)

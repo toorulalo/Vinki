@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useViewport, useViewportWheelBinding } from '../../lib/useViewport'
+import { useToast } from '../ui/Toast'
 import CardNode from './CardNode'
 import AddBlockMenu from './AddBlockMenu'
 import CardEditPanel from './CardEditPanel'
@@ -7,11 +8,12 @@ import CardEditPanel from './CardEditPanel'
 export default function CanvasBoard({
   canvasId,
   cards,
+  loading,
   onAddCard,
   onUpdateCard,
   onRemoveCard,
+  onCardOpen,
   profile,
-  sessionData,
 }) {
   const containerRef = useRef(null)
   const {
@@ -27,6 +29,12 @@ export default function CanvasBoard({
   useViewportWheelBinding(containerRef, onWheel)
 
   const [editingId, setEditingId] = useState(null)
+  const { showToast } = useToast()
+
+  function openCard(id) {
+    setEditingId(id)
+    onCardOpen?.(id)
+  }
 
   async function handleAddCard(type) {
     const rect = containerRef.current?.getBoundingClientRect()
@@ -34,9 +42,13 @@ export default function CanvasBoard({
     const worldPos = screenToWorld(rect.width / 2, rect.height / 2)
     const newX = Math.round(worldPos.x - 130)
     const newY = Math.round(worldPos.y - 90)
-    const { data } = await onAddCard(type, { x: newX, y: newY })
+    const { data, error } = await onAddCard(type, { x: newX, y: newY })
+    if (error) {
+      showToast(error.message || 'No se pudo crear la tarjeta.', 'error')
+      return
+    }
     if (data) {
-      setEditingId(data.id)
+      openCard(data.id)
       centerOn(data.x + (data.width || 260) / 2, data.y + (data.height || 180) / 2, view.scale)
     }
   }
@@ -78,7 +90,7 @@ export default function CanvasBoard({
             <CardNode
               key={card.id}
               card={card}
-              onEdit={() => setEditingId(card.id)}
+              onEdit={() => openCard(card.id)}
               onMove={(x, y) => onUpdateCard(card.id, { x, y })}
               onResize={(w, h) => onUpdateCard(card.id, { width: w, height: h })}
               onRemove={() => onRemoveCard(card.id)}
@@ -87,7 +99,13 @@ export default function CanvasBoard({
           ))}
         </div>
 
-        {cards.length === 0 && (
+        {loading && (
+          <div className="canvas-empty-hint">
+            <div className="spinner" />
+          </div>
+        )}
+
+        {!loading && cards.length === 0 && (
           <div className="canvas-empty-hint">
             <div className="canvas-empty-hint-icon">✦</div>
             <p>Toca el botón + para agregar tu primera tarjeta</p>

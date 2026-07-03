@@ -13,7 +13,7 @@ export default function DeckEditPanel({ card, onUpdate, profile }) {
 
   const [showReview, setShowReview] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [deckTitle, setDeckTitle] = useState(card?.content?.deckTitle || '')
+  const [deckTitle, setDeckTitle] = useState(card?.content?.deckTitle || card?.title || '')
   const [expandedCardId, setExpandedCardId] = useState(null)
 
   async function handleCreateDeck() {
@@ -23,7 +23,7 @@ export default function DeckEditPanel({ card, onUpdate, profile }) {
     setCreating(false)
     if (!error && data) {
       setDeckTitle(data.title)
-      onUpdate({ content: { ...card.content, deckId: data.id, deckTitle: data.title } })
+      onUpdate({ title: data.title, content: { ...card.content, deckId: data.id, deckTitle: data.title } })
     }
   }
 
@@ -31,7 +31,7 @@ export default function DeckEditPanel({ card, onUpdate, profile }) {
     setDeckTitle(newTitle)
     if (deckId) {
       await renameDeck(deckId, newTitle)
-      onUpdate({ content: { ...card.content, deckTitle: newTitle } })
+      onUpdate({ title: newTitle, content: { ...card.content, deckTitle: newTitle } })
     }
   }
 

@@ -37,7 +37,7 @@ export default function Login({ onLogin }) {
         )
         return
       }
-      if (data.session) onLogin(data.session)
+      if (data.session) onLogin?.(data.session)
     } else {
       const { error: err } = await supabase.auth.signUp({ email, password })
       setLoading(false)

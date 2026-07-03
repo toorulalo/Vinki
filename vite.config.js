@@ -16,10 +16,11 @@ export default defineConfig({
         background_color: '#F5F1EB',
         display: 'standalone',
         start_url: '/',
+        // GET share: params land as query strings on the SPA root, handled by
+        // src/components/ShareCapture.jsx (a POST target would need a server route).
         share_target: {
-          action: '/share',
-          method: 'POST',
-          enctype: 'multipart/form-data',
+          action: '/',
+          method: 'GET',
           params: { title: 'title', text: 'text', url: 'url' }
         },
         icons: [

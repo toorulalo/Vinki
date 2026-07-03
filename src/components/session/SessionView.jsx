@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useCards } from '../../lib/useCards'
 import PresenceBar from './PresenceBar'
 import ReactionBubble from './ReactionBubble'
@@ -7,17 +7,18 @@ import Avatar from '../ui/Avatar'
 const REACTION_EMOJIS = ['👍', '❤️', '🎉', '🤯']
 const REACTION_COOLDOWN_MS = 3000
 
-// Props: { session, partner, profile, myCanvasId, send, onLeave, children }
+// Props: { partner, profile, incomingEvent, send, onLeave, children }
 // children = <CanvasBoard /> for my canvas
-export default function SessionView({ session, partner, profile, myCanvasId, send, onLeave, children }) {
+export default function SessionView({ partner, profile, incomingEvent, send, onLeave, children }) {
   const [viewingPartner, setViewingPartner] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [reactionCooldown, setReactionCooldown] = useState(false)
   const [incomingReaction, setIncomingReaction] = useState(null)
 
-  // Partner's canvas cards (for read-only view)
+  // Partner's canvas cards — kept loaded so the read-only view opens instantly
+  // and the focus title in the topbar can resolve card names.
   const partnerCanvasId = partner?.individual_canvas_id || null
-  const { cards: partnerCards } = useCards(viewingPartner ? partnerCanvasId : null)
+  const { cards: partnerCards } = useCards(partnerCanvasId)
 
   // Partner focus card title
   const partnerFocusCardId = partner?.last_opened_card_id
@@ -28,15 +29,18 @@ export default function SessionView({ session, partner, profile, myCanvasId, sen
   const partnerProfile = partner?.profile || null
   const partnerName = partnerProfile?.display_name || 'tu compañero'
 
-  // Handle incoming events from channel
-  // Note: this component uses send but receives events via Canvas.jsx's handleSessionEvent.
-  // To receive reactions here we store a callback on the send ref — instead we use a local
-  // handler that Canvas passes through. For simplicity, wire reactions by wrapping send.
+  // Incoming broadcast events (routed down from Canvas.jsx's useSessionChannel)
+  useEffect(() => {
+    if (incomingEvent?.type === 'reaction') {
+      setIncomingReaction({ emoji: incomingEvent.emoji, from: incomingEvent.from })
+    }
+  }, [incomingEvent])
 
   function handleSendReaction(emoji) {
     if (reactionCooldown) return
     send({ type: 'reaction', emoji, from: profile.display_name })
     // Show own reaction briefly as confirmation
+    setIncomingReaction({ emoji, from: null })
     setReactionCooldown(true)
     setTimeout(() => setReactionCooldown(false), REACTION_COOLDOWN_MS)
   }
