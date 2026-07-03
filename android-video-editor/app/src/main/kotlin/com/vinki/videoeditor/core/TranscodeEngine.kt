@@ -76,9 +76,16 @@ class TranscodeEngine(
             // ---------- Origen ----------
             val extractor = MediaExtractor()
             orphanExtractor = extractor
-            extractor.setDataSource(config.inputPath)
+            val inputUri = config.inputUri
+            if (inputUri != null) {
+                extractor.setDataSource(context, inputUri, null)
+            } else {
+                extractor.setDataSource(
+                    requireNotNull(config.inputPath) { "Se requiere inputPath o inputUri" }
+                )
+            }
             val trackIndex = selectVideoTrack(extractor)
-                ?: throw IllegalArgumentException("Sin pista de video en ${config.inputPath}")
+                ?: throw IllegalArgumentException("Sin pista de video en la entrada")
             extractor.selectTrack(trackIndex)
             val inputFormat = extractor.getTrackFormat(trackIndex)
 
@@ -122,9 +129,16 @@ class TranscodeEngine(
             val encoderInputSurface = encoder.createInputSurface()
             encoder.start()
 
-            val muxer = MediaMuxer(
-                config.outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
-            )
+            val muxer = if (config.outputFd != null) {
+                // Salida directa a un FD de MediaStore: el resultado aparece en
+                // la Galería sin permisos de almacenamiento heredados.
+                MediaMuxer(config.outputFd, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            } else {
+                MediaMuxer(
+                    requireNotNull(config.outputPath) { "Se requiere outputPath u outputFd" },
+                    MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+                )
+            }
             orphanMuxer = muxer
 
             // ---------- HILO 2: contexto EGL ----------
@@ -240,11 +254,18 @@ class TranscodeEngine(
 }
 
 data class TranscodeConfig(
-    val inputPath: String,
-    val outputPath: String,
+    val inputPath: String? = null,
+    val inputUri: android.net.Uri? = null,
+    val outputPath: String? = null,
+    val outputFd: java.io.FileDescriptor? = null,
     val outputMime: String = "video/hevc",   // c2.exynos.hevc.encoder
     val bitrate: Int = 20_000_000,
     val frameRate: Int = 60,
     val outputWidth: Int? = null,
     val outputHeight: Int? = null
-)
+) {
+    init {
+        require(inputPath != null || inputUri != null) { "Se requiere inputPath o inputUri" }
+        require(outputPath != null || outputFd != null) { "Se requiere outputPath u outputFd" }
+    }
+}

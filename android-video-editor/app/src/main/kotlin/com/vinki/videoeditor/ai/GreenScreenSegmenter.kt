@@ -28,7 +28,7 @@ import java.nio.ByteOrder
  */
 class GreenScreenSegmenter(
     context: Context,
-    modelAssetPath: String = "models/mobile_unet_segmenter.tflite"
+    modelAssetPath: String = "models/selfie_segmenter.tflite"
 ) : Closeable {
 
     private val segmenter: ImageSegmenter

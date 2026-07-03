@@ -21,14 +21,12 @@ object ExportManager {
 
     private const val UNIQUE_WORK = "vinki-export"
 
-    fun enqueue(context: Context, spec: ExportSpec, durationMs: Long): UUID {
+    fun enqueue(context: Context, inputUri: String, chromaKey: Boolean): UUID {
         val request = OneTimeWorkRequestBuilder<ExportWorker>()
             .setInputData(
                 Data.Builder()
-                    .putString(ExportWorker.KEY_INPUT, spec.inputPath)
-                    .putString(ExportWorker.KEY_OUTPUT, spec.outputPath)
-                    .putBoolean(ExportWorker.KEY_USE_HEVC, spec.codec == HwCodec.HEVC)
-                    .putLong(ExportWorker.KEY_DURATION_MS, durationMs)
+                    .putString(ExportWorker.KEY_INPUT_URI, inputUri)
+                    .putBoolean(ExportWorker.KEY_CHROMA_KEY, chromaKey)
                     .build()
             )
             // Expedito: arranca ya; si no hay cuota, cae a Work normal.
@@ -50,7 +48,7 @@ object ExportManager {
         WorkManager.getInstance(context).getWorkInfoByIdFlow(id).map { info ->
             when (info?.state) {
                 WorkInfo.State.SUCCEEDED -> ExportProgress.Done(
-                    outputPath = info.outputData.getString(ExportWorker.KEY_OUTPUT).orEmpty()
+                    outputUri = info.outputData.getString(ExportWorker.KEY_OUTPUT_URI).orEmpty()
                 )
                 WorkInfo.State.FAILED -> ExportProgress.Failed(
                     reason = info.outputData.getString(ExportWorker.KEY_ERROR) ?: "desconocido"
@@ -69,6 +67,6 @@ object ExportManager {
 
 sealed interface ExportProgress {
     data class Running(val fraction: Float) : ExportProgress
-    data class Done(val outputPath: String) : ExportProgress
+    data class Done(val outputUri: String) : ExportProgress
     data class Failed(val reason: String) : ExportProgress
 }

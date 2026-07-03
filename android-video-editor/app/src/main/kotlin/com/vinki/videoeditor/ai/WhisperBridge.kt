@@ -5,8 +5,18 @@ package com.vinki.videoeditor.ai
  * es quien garantiza la serialización de llamadas y el troceado en lotes.
  */
 internal object WhisperBridge {
-    init {
+
+    /**
+     * true si libvinki_whisper.so viene en el APK (whisper.cpp presente en el
+     * build). Si es false, el subtitulado ASR está deshabilitado — la app
+     * funciona igual, sin crashear en el classload.
+     */
+    @JvmStatic
+    val isAvailable: Boolean = try {
         System.loadLibrary("vinki_whisper")
+        true
+    } catch (_: UnsatisfiedLinkError) {
+        false
     }
 
     @JvmStatic

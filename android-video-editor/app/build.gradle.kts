@@ -77,9 +77,9 @@ dependencies {
     // Segmentación on-device (Mobile-UNet vía ImageSegmenter + GPU Delegate en la Mali-G68).
     implementation("com.google.mediapipe:tasks-vision:0.10.20")
 
-    // ffmpeg-kit fue retirado de Maven Central (ene-2025). Se consume el último AAR GPL
-    // publicado como binario local (app/libs/ffmpeg-kit-full-gpl-6.0-2.aar), que incluye
-    // los encoders h264_mediacodec / hevc_mediacodec compilados con --enable-mediacodec.
-    implementation(files("libs/ffmpeg-kit-full-gpl-6.0-2.aar"))
-    implementation("com.arthenica:smart-exception-java:0.2.1")
+    // Nota: la exportación usa el motor MediaCodec nativo (TranscodeEngine) —
+    // mismo encode físico en el MFC del Exynos, sin binarios externos.
+    // La ruta FFmpeg (FfmpegCommandBuilder) queda como integración opcional:
+    // si se vendoriza un AAR de ffmpeg-kit en app/libs/, añadir aquí
+    // implementation(files("libs/ffmpeg-kit-full-gpl-6.0-2.aar")).
 }

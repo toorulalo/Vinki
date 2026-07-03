@@ -53,6 +53,9 @@ class SubtitleEngine(
     private var closed = false
 
     private fun ensureLoaded(): Long {
+        check(WhisperBridge.isAvailable) {
+            "libvinki_whisper no incluida en este build: ASR deshabilitado"
+        }
         check(!closed) { "SubtitleEngine ya cerrado" }
         if (handle == 0L) {
             synchronized(this) {

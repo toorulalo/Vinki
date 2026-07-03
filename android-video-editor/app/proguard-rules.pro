@@ -3,6 +3,5 @@
 -keep class com.vinki.videoeditor.ai.WhisperSegment { <init>(long, long, java.lang.String); *; }
 -keep class com.vinki.videoeditor.ai.WhisperBridge { *; }
 
-# ffmpeg-kit y MediaPipe cargan clases por nombre desde JNI.
--keep class com.arthenica.ffmpegkit.** { *; }
+# MediaPipe carga clases por nombre desde JNI.
 -keep class com.google.mediapipe.** { *; }

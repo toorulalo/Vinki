@@ -16,29 +16,39 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # GGML_NATIVE=OFF: nada de -march=native en cross-compile; la arquitectura
 # viene fijada por GGML_CPU_ARM_ARCH desde build.gradle.kts.
 # ============================================================================
-set(WHISPER_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
-set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(WHISPER_BUILD_SERVER   OFF CACHE BOOL "" FORCE)
-set(BUILD_SHARED_LIBS      OFF CACHE BOOL "" FORCE)
-set(GGML_OPENMP            OFF CACHE BOOL "" FORCE)  # hilos propios de ggml; OpenMP pelea con el scheduler EAS
+# Build CONDICIONAL: si el árbol de whisper.cpp no está presente, el módulo
+# compila igualmente sin libvinki_whisper y la app deshabilita el ASR en
+# runtime (WhisperBridge.isAvailable == false). Así el APK siempre se puede
+# generar aunque falte el submódulo/clon.
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/whisper.cpp/CMakeLists.txt)
+    set(WHISPER_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+    set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(WHISPER_BUILD_SERVER   OFF CACHE BOOL "" FORCE)
+    set(BUILD_SHARED_LIBS      OFF CACHE BOOL "" FORCE)
+    set(GGML_OPENMP            OFF CACHE BOOL "" FORCE)  # hilos propios de ggml; OpenMP pelea con el scheduler EAS
 
-add_subdirectory(
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/whisper.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/whisper_build
-    EXCLUDE_FROM_ALL
-)
+    add_subdirectory(
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/whisper.cpp
+        ${CMAKE_CURRENT_BINARY_DIR}/whisper_build
+        EXCLUDE_FROM_ALL
+    )
 
-add_library(vinki_whisper SHARED whisper_jni.cpp)
+    add_library(vinki_whisper SHARED whisper_jni.cpp)
 
-target_include_directories(vinki_whisper PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/whisper.cpp/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/whisper.cpp/ggml/include
-)
+    target_include_directories(vinki_whisper PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/whisper.cpp/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/whisper.cpp/ggml/include
+    )
 
-find_library(log-lib log)
-target_link_libraries(vinki_whisper whisper ${log-lib})
+    find_library(log-lib log)
+    target_link_libraries(vinki_whisper whisper ${log-lib})
 
-target_compile_options(vinki_whisper PRIVATE -O3 -ffast-math -fvisibility=hidden)
+    target_compile_options(vinki_whisper PRIVATE -O3 -ffast-math -fvisibility=hidden)
+else()
+    message(WARNING
+        "whisper.cpp no encontrado en third_party/: se omite libvinki_whisper. "
+        "El subtitulado ASR quedará deshabilitado en runtime.")
+endif()
 
 # ============================================================================
 # PIPELINE AOT DE SHADERS: GLSL → SPIR-V → ESSL optimizado

@@ -125,7 +125,12 @@ Setup: `git submodule add https://github.com/ggml-org/whisper.cpp app/src/main/c
 
 - `ExportWorker` (CoroutineWorker) promovido a **FGS `mediaProcessing`**
   (Android 15: hasta 6 h de proceso multimedia garantizado) con progreso real.
-- Comando FFmpeg (`FfmpegCommandBuilder.kt`):
+- La ruta por defecto es el **motor nativo** (`TranscodeEngine`): encode
+  físico HEVC/AVC en el MFC del Exynos 1380 en CBR, salida directa a
+  MediaStore (`Movies/Vinki`) vía FileDescriptor — el video exportado aparece
+  en la Galería. Cero binarios externos.
+- Ruta FFmpeg opcional (`FfmpegCommandBuilder.kt`), para pipelines complejos
+  de mux multi-pista:
 
 ```
 ffmpeg -y -i in.mp4 -c:v hevc_mediacodec -bitrate_mode cbr -b:v 20000000 \
@@ -133,10 +138,10 @@ ffmpeg -y -i in.mp4 -c:v hevc_mediacodec -bitrate_mode cbr -b:v 20000000 \
 ```
 
   `h264_mediacodec` / `hevc_mediacodec` fuerzan la codificación **física** en
-  el MFC del Exynos 1380 (FFmpeg solo orquesta demux/filtros/mux).
-- Nota: ffmpeg-kit fue retirado de Maven Central (2025); el AAR
-  `full-gpl-6.0-2` (compilado con `--enable-mediacodec --enable-jni`) se
-  vendoriza en `app/libs/`.
+  el MFC (FFmpeg solo orquesta demux/filtros/mux). ffmpeg-kit fue retirado de
+  Maven Central (2025): si se quiere esta ruta, vendorizar el AAR
+  `full-gpl-6.0-2` en `app/libs/` y añadir la dependencia comentada en
+  `app/build.gradle.kts`.
 
 ## 6. Auto-depuración
 
@@ -149,13 +154,42 @@ ffmpeg -y -i in.mp4 -c:v hevc_mediacodec -bitrate_mode cbr -b:v 20000000 \
 - Validaciones de dominio (`require`/`check`) en todos los constructores de
   modelos; null-safety estricta (cero `!!` en el módulo).
 
-## Requisitos de build
+## Cómo obtener e instalar la app (sin PC — desde la tablet)
 
-- JDK 17, Android SDK 35, NDK r27, CMake 3.22.
-- Submódulo whisper.cpp (ver §3) y modelo `ggml-base-q8_0.bin` en el
-  almacenamiento de la app.
-- Modelo de segmentación `.tflite` en `app/src/main/assets/models/`.
-- AAR de ffmpeg-kit en `app/libs/`.
+El repo incluye CI (`.github/workflows/build-editor-apk.yml`) que compila el
+APK en GitHub Actions, clonando whisper.cpp y descargando el modelo de
+segmentación automáticamente:
+
+1. En el navegador de la tablet: `github.com/toorulalo/Vinki` → pestaña
+   **Actions** → workflow **"Build Vinki Video Editor APK"** → **Run
+   workflow** (rama `claude/android-video-editor-exynos-3a9nki`). También se
+   dispara solo con cada push a esa rama.
+2. Cuando el run termine (~10-15 min), abrir el run → sección **Artifacts**
+   → descargar `vinki-video-editor-apk` (un .zip con `app-debug.apk`).
+3. Descomprimir e instalar el APK (Ajustes → permitir "instalar apps
+   desconocidas" para el navegador/Mis archivos).
+
+### Uso de la app
+
+- **+ Video** → elegir un clip (se añade a la timeline magnética y se
+  previsualiza en bucle).
+- **Chroma key** → activa el recorte HSV en la exportación (para material de
+  pantalla verde).
+- **Exportar** → transcodifica con el motor de 3 hilos (HEVC CBR por hardware)
+  en segundo plano; el resultado aparece en **Galería → Movies/Vinki**.
+- La timeline se arrastra con el dedo (con imantado a las junturas); el
+  S Pen sobre la timeline esculpe curvas de easing (presión = intensidad,
+  inclinación = asimetría in/out) con la curva dibujada en vivo.
+
+### Build local (opcional, con PC)
+
+- JDK 17, Android SDK 35, NDK r27, CMake 3.22; `gradle :app:assembleDebug`
+  desde `android-video-editor/`.
+- whisper.cpp en `app/src/main/cpp/third_party/whisper.cpp` (si falta, el
+  APK compila igual con el ASR deshabilitado). El modelo `ggml-base-q8_0.bin`
+  se coloca en el almacenamiento de la app para activar subtítulos.
+- Modelo de segmentación `.tflite` en `app/src/main/assets/models/`
+  (`selfie_segmenter.tflite`; si falta, el chroma key funciona solo por color).
 - (Opcional) `glslangValidator`, `spirv-opt`, `spirv-cross` en el PATH del
   host para el AOT de shaders; sin ellos, los GLSL fuente compilan online con
   caché `glProgramBinary`.
